@@ -30,3 +30,16 @@
 *.exe
 *.out
 *.app
+
+# Project specific ignores
+build
+build-third
+
+# Jetbrains IDE
+.idea/
+
+# OS X artifacts
+.DS_Store
+
+# VSCode IDE
+.vscode/
