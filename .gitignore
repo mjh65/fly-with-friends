@@ -31,9 +31,14 @@
 *.out
 *.app
 
+# Winmerge backup files
+*.bak
+
 # Project specific ignores
-build
-build-third
+build/
+build-third/
+out/
+pkg/
 
 # Jetbrains IDE
 .idea/
@@ -43,3 +48,8 @@ build-third
 
 # VSCode IDE
 .vscode/
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+

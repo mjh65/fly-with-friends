@@ -1,6 +1,6 @@
 [submodule "lib/XSDK"]
 	path = lib/XSDK
 	url = https://github.com/fpw/XSDK.git
-[submodule "lib/lipify"]
-	path = lib/lipify
-	url = https://github.com/mjh65/lipify.git
+[submodule "lib/json"]
+	path = lib/json
+	url = https://github.com/nlohmann/json

@@ -19,23 +19,42 @@
 #pragma once
 
 #include "isimdata.h"
+#include "fwfconsts.h"
+#include "XPLMDataAccess.h"
 
 namespace fwf {
 
-class Simulation : public ISimData
+class SimAccess : public ISimData
 {
 public:
-    Simulation();
-    ~Simulation();
+    SimAccess();
+    virtual ~SimAccess();
+
+    void UpdatePositions();
 
     // Implementation of ISimData
-    void GetUserAircraftPosition(AircraftPosition &ap) override;
+    void GetUserAircraftPosition(AircraftPosition& ap) override;
     void SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap) override;
 
 protected:
 private:
-    AircraftPosition        userPosition;
+    unsigned int    ownedOthers;
 
+    XPLMDataRef     userLatitude;
+    XPLMDataRef     userLongitude;
+    XPLMDataRef     userAltitude;
+    XPLMDataRef     userPitch;
+    XPLMDataRef     userRoll;
+    XPLMDataRef     userHeading;
+    // TODO - extend with aircraft state
+
+    XPLMDataRef     otherX[MAX_IN_SESSION];
+    XPLMDataRef     otherY[MAX_IN_SESSION];
+    XPLMDataRef     otherZ[MAX_IN_SESSION];
+    XPLMDataRef     otherPitch[MAX_IN_SESSION];
+    XPLMDataRef     otherRoll[MAX_IN_SESSION];
+    XPLMDataRef     otherHeading[MAX_IN_SESSION];
+    // TODO - extend with orientation and state
 };
 
 }

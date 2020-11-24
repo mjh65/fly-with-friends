@@ -8,7 +8,5 @@ configure_file(
 
 add_definitions("-include ${PROJECT_BINARY_DIR}/config.h")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-
 include(lib/CMakeLists.txt)
 include(src/CMakeLists.txt)

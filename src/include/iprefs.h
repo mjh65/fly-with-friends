@@ -18,15 +18,31 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+
 namespace fwf {
 
-// Interface for object representing the simulation
+// Interface for object providing saved user preferences
 
-class ISimulation
+class IPrefs
 {
 public:
-    static ISimulation * New();
-    virtual ~ISimulation() {}
+    static std::shared_ptr<IPrefs> New(const char * filepath);
+    virtual ~IPrefs() {}
+
+    virtual std::string Name() const = 0;
+    virtual void Name(std::string &) = 0;
+    virtual std::string Callsign() const = 0;
+    virtual void Callsign(std::string &) = 0;
+    virtual int HostingPort() const = 0;
+    virtual void HostingPort(int) = 0;
+    virtual std::string ServerAddr() const = 0;
+    virtual void ServerAddr(std::string &) = 0;
+    virtual int ServerPort() const = 0;
+    virtual void ServerPort(int) = 0;
+    virtual std::string Passcode() const = 0;
+    virtual void Passcode(std::string &) = 0;
 
 };
 

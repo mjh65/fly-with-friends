@@ -16,23 +16,39 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "simulation.h"
+#pragma once
+
+#include "fwfdialog.h"
+#include "XPLMDisplay.h"
+#include "Widgets/XPWidgetDefs.h"
 
 namespace fwf {
 
-ISimulation * ISimulation::New()
-{
-    return new Simulation();
-}
+class UIManager;
 
-Simulation::Simulation()
+class JoiningDialog : public Dialog
 {
-}
+public:
+    JoiningDialog(UIManager * owner);
+    ~JoiningDialog();
 
-Simulation::~Simulation()
-{
-}
+    void CreateDialogWidgets() override;
+    int HandleMessage(XPWidgetMessage msg, XPWidgetID id, intptr_t p1, intptr_t p2) override;
 
+    void SetName(const char *a);
+    void SetCallsign(const char *a);
+    void SetServerAddress(const char *a);
+    void SetServerPort(const char *a);
+    void SetPasscode(const char *a);
+
+protected:
+private:
+    XPWidgetID          nameCaption, nameEdit;
+    XPWidgetID          callsignCaption, callsignEdit;
+    XPWidgetID          serverCaption, serverEdit, portEdit;
+    XPWidgetID          passcodeCaption, passcodeEdit;
+    XPWidgetID          joinButton;
+};
 
 }
 

@@ -18,11 +18,9 @@
 
 #pragma once
 
-#include "icontrol.h"
-
 namespace fwf {
 
-class Control : public IControl
+class Control
 {
 public:
     Control();
@@ -30,6 +28,7 @@ public:
 
 protected:
 private:
+
 };
 
 }

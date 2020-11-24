@@ -1,4 +1,29 @@
-target_sources(fwf_lib_testapp PRIVATE
+# Standalone test program
+add_executable(fwf_testapp
+    ${CMAKE_CURRENT_LIST_DIR}/toolmain.cpp
     ${CMAKE_CURRENT_LIST_DIR}/control.cpp
     ${CMAKE_CURRENT_LIST_DIR}/simulation.cpp
 )
+
+if(WIN32)
+    add_definitions(-DTARGET_WINDOWS)
+    target_link_libraries(fwf_testapp
+        -static
+        -static-libgcc
+        -static-libstdc++
+        fwf_lib_common
+        -Wl,--subsystem,windows
+    )
+elseif(APPLE)
+    add_definitions(-DTARGET_MACOSX)
+    include_directories("/usr/local/include")
+    link_directories("/usr/local/lib")
+    target_link_libraries(fwf_testapp
+        fwf_lib_common
+    )
+elseif(UNIX)
+    add_definitions(-DTARGET_LINUX)
+    target_link_libraries(fwf_testapp
+        fwf_lib_common
+    )
+endif()

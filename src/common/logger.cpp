@@ -20,7 +20,11 @@
 #include "logger.h"
 #include <cstdarg>
 #include <cstring>
+#ifndef _MSC_VER
 #include <libgen.h>
+#else
+static char* basename(char*);
+#endif
 
 namespace fwf {
 
@@ -35,13 +39,21 @@ ILogger * ILogger::New(const char * logFilePath)
     return theLogger;
 }
 
-void ILogger::verbose(bool enable, const char *file, const char *function, const int line, const char *format, ...)
+void ILogger::error(const char *file, const char *function, const int line, const char *format, ...)
 {
-    if (!enable) return;
     if (!theLogger) return;
     va_list args;
     va_start(args, format);
-    theLogger->log('V', file, function, line, format, args);
+    theLogger->log('E', file, function, line, format, args);
+    va_end(args);
+}
+
+void ILogger::warn(const char *file, const char *function, const int line, const char *format, ...)
+{
+    if (!theLogger) return;
+    va_list args;
+    va_start(args, format);
+    theLogger->log('W', file, function, line, format, args);
     va_end(args);
 }
 
@@ -55,25 +67,27 @@ void ILogger::info(bool enable, const char *file, const char *function, const in
     va_end(args);
 }
 
-void ILogger::warn(const char *file, const char *function, const int line, const char *format, ...)
+void ILogger::verbose(bool enable, const char *file, const char *function, const int line, const char *format, ...)
 {
+    if (!enable) return;
     if (!theLogger) return;
     va_list args;
     va_start(args, format);
-    theLogger->log('W', file, function, line, format, args);
+    theLogger->log('V', file, function, line, format, args);
     va_end(args);
 }
 
-void ILogger::error(const char *file, const char *function, const int line, const char *format, ...)
+#ifndef NDEBUG
+void ILogger::debug(bool enable, const char *file, const char *function, const int line, const char *format, ...)
 {
+    if (!enable) return;
     if (!theLogger) return;
     va_list args;
     va_start(args, format);
-    theLogger->log('E', file, function, line, format, args);
+    theLogger->log('D', file, function, line, format, args);
     va_end(args);
 }
-
-
+#endif
 
 Logger::Logger(const char * logFilePath)
 {
@@ -83,20 +97,44 @@ Logger::Logger(const char * logFilePath)
 Logger::~Logger()
 {
     logFile.close();
+    if (theLogger)
+    {
+        theLogger = 0;
+    }
 }
 
 void Logger::log(const char pfx, const char *file, const char *function, const int line, const char *format, va_list args)
 {
     std::lock_guard<std::mutex> lock(logMutex);
     
-    strncpy(scratchFile, file, sizeof(scratchFile) - 1);
+    strncpy_s(scratchFile, file, sizeof(scratchFile) - 1);
     snprintf(scratchFormat,  sizeof(scratchFormat), "%c:%s::%s():%d %s", pfx, basename(scratchFile), function, line, format);
     vsnprintf(scratchLine, sizeof(scratchLine), scratchFormat, args);
     logFile << scratchLine << std::endl;
     logFile.flush();
 }
 
-
-
 }
 
+#ifdef _MSC_VER
+static char * basename(char * path)
+{
+    static char dotpath[2] = ".";
+    if (!path || !*path) return dotpath;
+    char* p = path + strlen(path) - 1;
+    while ((p > path) && ((*p == '/') || (*p == '\\')))
+    {
+        *p-- = 0;
+    }
+    while ((p > path) && (*p != '/') && (*p != '\\'))
+    {
+        --p;
+    }
+    if (p > path)
+    {
+        *p = 0;
+        return p + 1;
+    }
+    return p;
+}
+#endif

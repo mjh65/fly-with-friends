@@ -18,18 +18,29 @@
 
 #pragma once
 
-#include "isimulation.h"
+#include <memory>
 
 namespace fwf {
 
-class Simulation : public ISimulation
+// Aircraft position, oriententation (and other state?)
+
+struct AircraftPosition
+{
+    uint32_t        msTimestamp;
+    double          latitude, longitude, altitude;
+    float           heading, pitch, roll;
+    float           gear, flap, spoiler, speedBrake, slat, sweep;
+    static const unsigned int ENCODED_SIZE = sizeof(uint32_t) + (3 * sizeof(int32_t)) + (3 * sizeof(int16_t)) + (6 * sizeof(uint8_t));
+};
+
+// Callbacks from the engine to access X-Plane (or other host application)
+
+class ISimData
 {
 public:
-    Simulation();
-    ~Simulation();
-
-protected:
-private:
+    static std::shared_ptr<ISimData> New();
+    virtual void GetUserAircraftPosition(AircraftPosition &ap) = 0;
+    virtual void SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap) = 0;
 };
 
 }

@@ -18,18 +18,43 @@
 
 #pragma once
 
-#include "icontrol.h"
+#include <stdint.h>
+#include <string>
 
 namespace fwf {
 
-class Control : public IControl
+class IPv4Address
 {
 public:
-    Control();
-    ~Control();
-
-protected:
+    IPv4Address();
+    IPv4Address(int a0, int a1, int a2, int a3);
+    IPv4Address(uint32_t hostaddr);
+    IPv4Address(const char * addrStr);
+    void Reset();
+    bool IsValid() const { return (address != 0); }
+    uint32_t GetAsUInt32() const { return address; }
+    int Get(unsigned int i) const;
+    std::string GetQuad() const;
+    void Set(const char * astr);
+    void Set(int a0, int a1, int a2, int a3);
 private:
+    uint32_t address;
+};
+
+class SocketAddress : public IPv4Address
+{
+public:
+    SocketAddress();
+    SocketAddress(IPv4Address a, int p);
+    SocketAddress(int a0, int a1, int a2, int a3, int p);
+    SocketAddress(uint32_t hostaddr, int p);
+    void Reset();
+    bool Equal(const SocketAddress & x) const;
+    int GetPort() const { return port; }
+    std::string GetAsString() const;
+
+private:
+    int port;
 };
 
 }

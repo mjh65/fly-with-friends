@@ -19,17 +19,63 @@
 #pragma once
 
 #include "iengine.h"
+#include "isimdata.h"
+#include "addrfinder.h"
+#include "sessionhub.h"
+#include "clientlink.h"
+#include <memory>
+#include <mutex>
+
 
 namespace fwf {
 
 class Engine : public IEngine
 {
 public:
-    Engine();
+    Engine(std::shared_ptr<ISimData> si);
     ~Engine();
 
+    // IEngine implementation
+    bool GetPublicIPAddress(std::string & ipaddr) override;
+    void StartSessionServer(const int port, const char * passcode) override;
+    void StopSessionServer() override;
+    bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode) override;
+    void LeaveSession() override;
+    std::string StatusSummary() override;
+    std::string StatusDetail(unsigned int i) override;
+    float DoFlightLoop(unsigned int n, unsigned int ms) override;
+
+    unsigned int LoopNumber();
+    unsigned int Milliseconds();
+
 protected:
+
 private:
+    // thread access control
+    std::mutex                          guard;
+
+    // interface to simulation - for X-Plane API and dataref access
+    std::shared_ptr<ISimData>           simulation;
+
+    // the public IP address (other side of the NAT/firewall)
+    IPv4Address                         publicInetAddr;
+
+    // background task object to figure out our public IP address
+    std::unique_ptr<IPAddrFinder>       addrFinder;
+    unsigned int                        findDelay;
+
+    std::unique_ptr<SessionHub>         sessionHub;
+
+    // background task object coordinating with the session server
+    std::unique_ptr<ClientLink>         clientLink;
+
+    // monotonically incrementing flight loop, time counter and frame numbers
+    unsigned int                        loopNumber;
+    unsigned int                        milliSeconds;
+    uint32_t                            frameNumber;
+
+    // aircraft state data
+    //AircraftPosition                    aircraftState[MAX_IN_SESSION];
 };
 
 }

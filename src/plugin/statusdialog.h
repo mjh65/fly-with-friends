@@ -16,26 +16,34 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "simulation.h"
+#pragma once
+
+#include "fwfdialog.h"
+#include "XPLMDisplay.h"
+#include "Widgets/XPWidgetDefs.h"
 
 namespace fwf {
 
-Simulation::Simulation()
-{
-}
+class UIManager;
 
-Simulation::~Simulation()
+class StatusDialog : public Dialog
 {
-}
+public:
+    StatusDialog(UIManager * owner);
+    ~StatusDialog();
 
-void Simulation::GetUserAircraftPosition(AircraftPosition &ap)
-{
-    ap = userPosition;
-}
+    void CreateDialogWidgets() override;
+    int HandleMessage(XPWidgetMessage msg, XPWidgetID id, intptr_t p1, intptr_t p2) override;
 
-void Simulation::SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap)
-{
-}
+    void ResetStatusReport();
+    void SetStatusText(unsigned int i, const char* a);
+
+protected:
+private:
+    static const unsigned int STATUS_LINES = 4;
+    XPWidgetID          statusText[STATUS_LINES];
+    XPWidgetID          leaveButton;
+};
 
 }
 

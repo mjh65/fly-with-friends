@@ -18,17 +18,37 @@
 
 #pragma once
 
+#include "fwfdialog.h"
+#include "XPLMDisplay.h"
+#include "Widgets/XPWidgetDefs.h"
+#include <memory>
+
 namespace fwf {
 
-// Interface for object providing the plugin engine
+class UIManager;
 
-class IEngine
+class HostingDialog : public Dialog
 {
 public:
-    static IEngine * New();
-    virtual ~IEngine() {}
-    
+    HostingDialog(UIManager * owner);
+    ~HostingDialog();
+
+    void CreateDialogWidgets() override;
+    int HandleMessage(XPWidgetMessage msg, XPWidgetID id, intptr_t p1, intptr_t p2) override;
+
+    void SetHostingAddress(const char *a);
+    void SetName(const char *a);
+    void SetCallsign(const char *a);
+    void SetHostingPort(const char *a);
+    void SetPasscode(const char *a);
+
+protected:
+private:
+    XPWidgetID                  nameCaption, nameEdit;
+    XPWidgetID                  callsignCaption, callsignEdit;
+    XPWidgetID                  serverCaption, serverText, portEdit;
+    XPWidgetID                  passcodeCaption, passcodeEdit;
+    XPWidgetID                  hostButton;
 };
 
 }
-

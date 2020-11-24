@@ -20,10 +20,15 @@
 
 #include <string>
 
-#define LOG_VERBOSE(enable_expression, ...) fwf::ILogger::verbose(enable_expression, __FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
-#define LOG_INFO(enable_expression, ...) fwf::ILogger::info(enable_expression, __FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
-#define LOG_WARN(...) fwf::ILogger::warn(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
 #define LOG_ERROR(...) fwf::ILogger::error(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#define LOG_WARN(...) fwf::ILogger::warn(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#define LOG_INFO(enable_expression, ...) fwf::ILogger::info(enable_expression, __FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#define LOG_VERBOSE(enable_expression, ...) fwf::ILogger::verbose(enable_expression, __FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#ifndef NDEBUG
+#define LOG_DEBUG(enable_expression, ...) fwf::ILogger::debug(enable_expression, __FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#else
+#define LOG_DEBUG(enable_expression, ...)
+#endif
 
 namespace fwf {
 
@@ -35,10 +40,13 @@ public:
     static ILogger * New(const char * logFilePath);
     virtual ~ILogger() {}
     
-    static void verbose(bool enable, const char *file, const char *function, const int line, const char *format, ...);
-    static void info(bool enable, const char *file, const char *function, const int line, const char *format, ...);
-    static void warn(const char *file, const char *function, const int line, const char *format, ...);
     static void error(const char *file, const char *function, const int line, const char *format, ...);
+    static void warn(const char *file, const char *function, const int line, const char *format, ...);
+    static void info(bool enable, const char *file, const char *function, const int line, const char *format, ...);
+    static void verbose(bool enable, const char *file, const char *function, const int line, const char *format, ...);
+#ifndef NDEBUG
+    static void debug(bool enable, const char *file, const char *function, const int line, const char *format, ...);
+#endif
 
     virtual void log(const char pfx, const char *file, const char *function, const int line, const char *format, va_list args) = 0;
 

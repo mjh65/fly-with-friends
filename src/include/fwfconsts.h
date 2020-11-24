@@ -18,19 +18,14 @@
 
 #pragma once
 
-#include <string>
-
 namespace fwf {
 
-// Interface for object providing the plugin control
-
-class IControl
-{
-public:
-    static IControl * New();
-    virtual ~IControl() {}
-
-};
+static const unsigned int   MAX_IN_SESSION      = 16;       // could be tuned up maybe?
+static const int            CONTACT_TIMEOUT     = 200;      // approx 20 seconds, should convert to ms value
+static const unsigned int   UNKNOWN_ID          = 0xFF;
+static const unsigned int   SESSION_RENEW_MS    = 8000;  
+static const unsigned int   MAX_DATAGRAM_LEN    = 524;
+static const unsigned int   MAX_PAYLOAD_LEN		= 512;
 
 }
 

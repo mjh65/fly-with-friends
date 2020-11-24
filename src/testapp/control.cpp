@@ -20,11 +20,6 @@
 
 namespace fwf {
 
-IControl * IControl::New()
-{
-    return new Control();
-}
-
 Control::Control()
 {
 }

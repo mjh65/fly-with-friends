@@ -16,22 +16,30 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "control.h"
+#pragma once
+
+#if 0
+#include "iconfig.h"
+#include "iengine.h"
+#include <memory>
+#include <vector>
 
 namespace fwf {
 
-IControl * IControl::New()
+// Interface for object providing the plugin control
+
+class IControl
 {
-    return new Control();
+public:
+    static IControl * New(std::shared_ptr<IConfig> & config, std::shared_ptr<IEngine> & engine);
+    virtual ~IControl() {}
+    
+    virtual void ConfigureHosting() = 0;
+    virtual void ConfigureJoining() = 0;
+    virtual float UpdateDialogs() = 0;
+
+};
+
 }
 
-Control::Control()
-{
-}
-
-Control::~Control()
-{
-}
-
-}
-
+#endif

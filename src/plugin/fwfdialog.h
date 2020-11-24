@@ -16,26 +16,43 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "simulation.h"
+#pragma once
+
+#include "XPLMDisplay.h"
+#include "Widgets/XPWidgetDefs.h"
+#include <string>
 
 namespace fwf {
 
-Simulation::Simulation()
-{
-}
+class UIManager;
 
-Simulation::~Simulation()
+class Dialog
 {
-}
+public:
+    Dialog(UIManager * owner, int width, int height, const char *title);
+    virtual ~Dialog();
 
-void Simulation::GetUserAircraftPosition(AircraftPosition &ap)
-{
-    ap = userPosition;
-}
+    virtual void CreateDialogWidgets() = 0;
+    virtual int HandleMessage(XPWidgetMessage msg, XPWidgetID id, intptr_t p1, intptr_t p2) = 0;
 
-void Simulation::SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap)
-{
-}
+    void Activate();
+    bool IsVisible();
+    void MakeVisible(bool v = true);
+    void EnterVR();
+    void ExitVR();
+
+    int MsgDespatcher(XPWidgetMessage msg, XPWidgetID id, intptr_t p1, intptr_t p2);
+
+protected:
+    UIManager           * const uiMgr;
+    int                 left, top;
+    int                 width, height;
+    std::string         title;
+    XPLMWindowID        window;
+    XPWidgetID          dialog;
+    bool                isActive;
+
+};
 
 }
 
