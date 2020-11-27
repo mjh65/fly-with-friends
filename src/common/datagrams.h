@@ -154,7 +154,7 @@ inline unsigned int DecodeAircraftPosition(AircraftPosition& ap, const char* buf
     const char* p = buffer;
     uint32_t ts;
     memcpy(&ts, p, sizeof(ts));
-    ts = ntohl(ts);
+    ap.msTimestamp = ntohl(ts);
     p += sizeof(ts);
     int32_t i32;
     memcpy(&i32, p, sizeof(i32));

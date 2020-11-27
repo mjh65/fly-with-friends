@@ -20,12 +20,12 @@
 
 namespace fwf {
 
-static const unsigned int   MAX_IN_SESSION      = 16;       // could be tuned up maybe?
-static const int            CONTACT_TIMEOUT     = 200;      // approx 20 seconds, should convert to ms value
-static const unsigned int   UNKNOWN_ID          = 0xFF;
-static const unsigned int   SESSION_RENEW_MS    = 8000;  
-static const unsigned int   MAX_DATAGRAM_LEN    = 524;
-static const unsigned int   MAX_PAYLOAD_LEN		= 512;
+static const unsigned int   MAX_IN_SESSION              = 16;   // could be tuned up maybe?
+static const unsigned int   MAX_DATAGRAM_LEN            = 524;
+static const unsigned int   MAX_PAYLOAD_LEN             = 512;
+static const unsigned int   CLIENT_UPDATE_PERIOD_MS     = 100;
+static const unsigned int   SERVER_BROADCAST_PERIOD_MS  = 320;
+static const unsigned int   ID_REBROADCAST_PERIOD_MS    = 7500;
 
 }
 

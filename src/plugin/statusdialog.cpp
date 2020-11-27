@@ -44,7 +44,7 @@ void StatusDialog::CreateDialogWidgets()
     for (unsigned int i = 0; i < STATUS_LINES; ++i)
     {
         unsigned int yp = y - 20 - (i * 16);
-        const char* t = i ? "<n/c>" : "Connecting ...";
+        const char* t = "";
         statusText[i] = XPCreateWidget(x + 10, yp, x + 390, yp - 16,
             1, t, 0, dialog,
             xpWidgetClass_Caption);
@@ -55,6 +55,14 @@ void StatusDialog::CreateDialogWidgets()
         1, " Leave session", 0, dialog,
         xpWidgetClass_Button);
     XPSetWidgetProperty(leaveButton, xpProperty_ButtonType, xpPushButton);
+
+#ifndef NDEBUG
+    recordButton = XPCreateWidget(x + 330, y - 90, x + 390, y - 112,
+        1, "rec  r  rec", 0, dialog,
+        xpWidgetClass_Button);
+    XPSetWidgetProperty(recordButton, xpProperty_ButtonType, xpRadioButton);
+    XPSetWidgetProperty(recordButton, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox);
+#endif
 }
 
 int StatusDialog::HandleMessage(XPWidgetMessage msg, XPWidgetID id, intptr_t p1, intptr_t p2)
@@ -64,6 +72,20 @@ int StatusDialog::HandleMessage(XPWidgetMessage msg, XPWidgetID id, intptr_t p1,
         uiMgr->StopSession();
         return 1;
     }
+#ifndef NDEBUG
+    if ((msg == xpMsg_ButtonStateChanged) && (p1 == (intptr_t)recordButton))
+    {
+        if (p2)
+        {
+            uiMgr->StartRecording();
+        }
+        else
+        {
+            uiMgr->StopRecording();
+        }
+        return 1;
+    }
+#endif
 
     return 0;
 }
@@ -80,6 +102,13 @@ void StatusDialog::SetStatusText(unsigned int i, const char *a)
 {
     if ((i<0) || (i>=STATUS_LINES)) return;
     XPSetWidgetDescriptor(statusText[i], a);
+}
+
+void StatusDialog::ResetRecordingButton()
+{
+#ifndef NDEBUG
+    XPSetWidgetProperty(recordButton, xpProperty_ButtonState, 0);
+#endif
 }
 
 }

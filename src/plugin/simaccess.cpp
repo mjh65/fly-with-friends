@@ -25,6 +25,10 @@
 
 namespace fwf {
 
+static const bool infoLogging = true;
+static const bool verboseLogging = false;
+static const bool debugLogging = false;
+
 std::shared_ptr<ISimData> ISimData::New()
 {
     return std::make_shared<SimAccess>();
@@ -39,21 +43,12 @@ SimAccess::SimAccess()
     assert(userLongitude);
     userAltitude = XPLMFindDataRef("sim/flightmodel/position/elevation");
     assert(userAltitude);
-#if 1
     userPitch = XPLMFindDataRef("sim/flightmodel/position/theta");
     assert(userPitch);
     userRoll = XPLMFindDataRef("sim/flightmodel/position/phi");
     assert(userRoll);
     userHeading = XPLMFindDataRef("sim/flightmodel/position/psi");
     assert(userHeading);
-#else
-    userPitch = XPLMFindDataRef("sim/flightmodel/position/true_theta");
-    assert(userPitch);
-    userRoll = XPLMFindDataRef("sim/flightmodel/position/true_phi");
-    assert(userRoll);
-    userHeading = XPLMFindDataRef("sim/flightmodel/position/true_psi");
-    assert(userHeading);
-#endif
 
     std::string b0("sim/multiplayer/position/plane");
     for (unsigned int i = 1; i < 10; ++i) {
@@ -103,7 +98,7 @@ void SimAccess::GetUserAircraftPosition(AircraftPosition& ap)
     ap.roll = XPLMGetDataf(userRoll);
     ap.gear = ap.flap = ap.spoiler = ap.speedBrake = ap.slat =ap.sweep = 0;
 #ifndef NDEBUG
-    LOG_DEBUG(1, "A,%f,%f,%f,   %f,%f,%f,   %f,%f,%f,%f,%f,%f",
+    LOG_DEBUG(debugLogging, "A,%f,%f,%f,   %f,%f,%f,   %f,%f,%f,%f,%f,%f",
         ap.latitude, ap.longitude, ap.altitude, ap.heading, ap.pitch, ap.roll,
         ap.gear, ap.flap, ap.spoiler, ap.speedBrake, ap.slat, ap.sweep);
 #endif
@@ -113,13 +108,13 @@ void SimAccess::SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap)
 {
     if (!(ownedOthers & (1 << id)))
     {
-        LOG_INFO(1, "Disabling AI for plane %d, taking control", id);
+        LOG_INFO(infoLogging, "Disabling AI for plane %d, taking control", id);
         XPLMDisableAIForPlane(id);
         ownedOthers |= (1 << id);
     }
     if ((id < 1) || (id >= MAX_IN_SESSION)) return;
 #ifndef NDEBUG
-    LOG_DEBUG(1, "SET(%d)  %f,%f,%f,   %f,%f,%f", id,
+    LOG_DEBUG(debugLogging, "SET(%d)  %f,%f,%f,   %f,%f,%f", id,
         ap.latitude, ap.longitude, ap.altitude, ap.heading, ap.pitch, ap.roll);
 #endif
     double x, y, z;
@@ -127,9 +122,9 @@ void SimAccess::SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap)
     XPLMSetDatad(otherX[id], x);
     XPLMSetDatad(otherY[id], y);
     XPLMSetDatad(otherZ[id], z);
-    XPLMSetDataf(otherHeading[id], ap.heading);
-    XPLMSetDataf(otherPitch[id], ap.pitch);
-    XPLMSetDataf(otherRoll[id], ap.roll);
+    XPLMSetDataf(otherHeading[id], static_cast<float>(ap.heading));
+    XPLMSetDataf(otherPitch[id], static_cast<float>(ap.pitch));
+    XPLMSetDataf(otherRoll[id], static_cast<float>(ap.roll));
 }
 
 }

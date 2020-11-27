@@ -17,10 +17,15 @@
  */
 
 #include "flightreplay.h"
+#include "ilogger.h"
 #include <cstring>
 
 namespace fwf
 {
+
+static const bool infoLogging = true;
+static const bool verboseLogging = true;
+static const bool debugLogging = true;
 
 inline std::string NextLine(char*& buffer)
 {
@@ -112,7 +117,8 @@ bool FlightReplay::AsyncReplayFlight()
     {
         std::this_thread::sleep_until(nextWakeTime);
         position.msTimestamp = (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() & 0xffffffff);
-        clientLink->RunCycle(position);
+        LOG_VERBOSE(verboseLogging, "send position, ts=%u, lat=%3.5f, lon=%3.5f", position.msTimestamp, position.latitude, position.longitude);
+        clientLink->SendOurAircraftData(position);
         nextWakeTime += std::chrono::milliseconds(periodMs);
     }
     clientLink->LeaveSession();

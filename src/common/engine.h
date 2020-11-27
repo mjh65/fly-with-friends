@@ -26,7 +26,6 @@
 #include <memory>
 #include <mutex>
 
-
 namespace fwf {
 
 class Engine : public IEngine
@@ -41,12 +40,11 @@ public:
     void StopSessionServer() override;
     bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode) override;
     void LeaveSession() override;
+    void StartRecording() override;
+    void StopRecording() override;
     std::string StatusSummary() override;
     std::string StatusDetail(unsigned int i) override;
-    float DoFlightLoop(unsigned int n, unsigned int ms) override;
-
-    unsigned int LoopNumber();
-    unsigned int Milliseconds();
+    float DoFlightLoop() override;
 
 protected:
 
@@ -70,12 +68,9 @@ private:
     std::unique_ptr<ClientLink>         clientLink;
 
     // monotonically incrementing flight loop, time counter and frame numbers
-    unsigned int                        loopNumber;
-    unsigned int                        milliSeconds;
+    std::chrono::time_point<std::chrono::steady_clock>
+                                        nextNetworkUpdateTime;
     uint32_t                            frameNumber;
-
-    // aircraft state data
-    //AircraftPosition                    aircraftState[MAX_IN_SESSION];
 };
 
 }

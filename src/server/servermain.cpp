@@ -96,7 +96,7 @@ int main(int argc, const char **argv)
                 prevPacketCount = pktCount;
                 serverTimeout = SERVER_TIMEOUT;
             }
-            if (!hub->ActiveMemberCount())
+            if (!hub->ActiveAircraftCount())
             {
                 --serverTimeout;
             }
@@ -109,7 +109,7 @@ int main(int argc, const char **argv)
         {
             std::cout << "No server connections were made in " << SERVER_STARTUP_TIMEOUT << " seconds since starting. Giving up." << std::endl;
         }
-        else if (!hub->ActiveMemberCount())
+        else if (!hub->ActiveAircraftCount())
         {
             std::cout << "No member activity for " << SERVER_TIMEOUT << " seconds. Shutting down." << std::endl;
         }

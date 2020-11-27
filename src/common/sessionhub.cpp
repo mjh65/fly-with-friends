@@ -28,7 +28,7 @@ static const bool verboseLogging = false;
 static const bool debugLogging = false;
 
 SessionHub::SessionHub(const int port, const std::string& pc)
-:   SessionDatabase(),
+:   ServerDatabase(),
     UdpSocketOwner(),
     passcode(pc),
     serviceSocket(this, std::string("SERV"), port), // might throw exception
@@ -157,12 +157,12 @@ void SessionHub::UpdateAirplaneState(SocketAddress& sender, uint32_t uuid, Aircr
         if (AddMember(uuid, m) == MAX_IN_SESSION) return;
     }
     if (!m->Address().Equal(sender)) return;
-    m->UpdatePosition(ap);
+    m->SetPosition(ap);
 }
 
 int SessionHub::AsyncBroadcastGroupState()
 {
-    auto nextWakeTime = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+    auto nextWakeTime = std::chrono::steady_clock::now() + std::chrono::milliseconds(SERVER_BROADCAST_PERIOD_MS);
     while (1)
     {
         ++loopNumber;
@@ -175,7 +175,7 @@ int SessionHub::AsyncBroadcastGroupState()
                 return 0;
             }
         }
-        nextWakeTime += std::chrono::milliseconds(100);
+        nextWakeTime += std::chrono::milliseconds(SERVER_BROADCAST_PERIOD_MS);
 
         CheckLapsedMembership();
         RemoveExpiredMembership();

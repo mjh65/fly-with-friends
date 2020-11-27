@@ -28,8 +28,13 @@ struct AircraftPosition
 {
     uint32_t        msTimestamp;
     double          latitude, longitude, altitude;
+#if 0
     float           heading, pitch, roll;
     float           gear, flap, spoiler, speedBrake, slat, sweep;
+#else
+    double          heading, pitch, roll;
+    double          gear, flap, spoiler, speedBrake, slat, sweep;
+#endif
     static const unsigned int ENCODED_SIZE = sizeof(uint32_t) + (3 * sizeof(int32_t)) + (3 * sizeof(int16_t)) + (6 * sizeof(uint8_t));
 };
 

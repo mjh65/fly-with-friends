@@ -12,9 +12,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="addrfinder.cpp" />
+    <ClCompile Include="aircraftdb.cpp" />
     <ClCompile Include="engine.cpp" />
     <ClCompile Include="logger.cpp" />
-    <ClCompile Include="members.cpp" />
+    <ClCompile Include="aircraft.cpp" />
     <ClCompile Include="prefs.cpp" />
     <ClCompile Include="clientlink.cpp" />
     <ClCompile Include="sessionhub.cpp" />
@@ -29,10 +30,11 @@
     <ClInclude Include="..\include\iprefs.h" />
     <ClInclude Include="..\include\isimdata.h" />
     <ClInclude Include="addrfinder.h" />
+    <ClInclude Include="aircraftdb.h" />
     <ClInclude Include="datagrams.h" />
     <ClInclude Include="engine.h" />
     <ClInclude Include="logger.h" />
-    <ClInclude Include="members.h" />
+    <ClInclude Include="aircraft.h" />
     <ClInclude Include="prefs.h" />
     <ClInclude Include="clientlink.h" />
     <ClInclude Include="sessionhub.h" />

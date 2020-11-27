@@ -19,7 +19,7 @@
 #pragma once
 
 #include "iengine.h"
-#include "members.h"
+#include "aircraftdb.h"
 #include "sockcomms.h"
 #include <vector>
 
@@ -27,7 +27,7 @@ namespace fwf {
 
 class Engine;
 
-class ClientLink : public SessionDatabase, public UdpSocketOwner
+class ClientLink : public TrackedAircraftDatabase, public UdpSocketOwner
 {
     // This class owns the UDP socket that's used for the exchange of data
     // with the session server. There is only one instance. The socket ID is
@@ -39,7 +39,8 @@ public:
 
     // action functions called from the UI/sim/engine
     void LeaveSession();
-    float RunCycle(AircraftPosition &us, AircraftPosition *others = nullptr, unsigned int *active = nullptr);
+    void SendOurAircraftData(AircraftPosition& us);
+    //float RunCycle(AircraftPosition &us, AircraftPosition *others = nullptr, unsigned int *active = nullptr);
 
     // Implementation of UdpSocketOwner
     void IncomingDatagram(AddressedDatagram dgin) override;
@@ -54,11 +55,9 @@ public:
     bool GetFlierIdentifiers(unsigned int id, std::string & name, std::string & callsign);
 
 protected:
-    //bool AsyncConnectToSession();
     bool AsyncDisconnectFromSession();
     bool AsyncFlightLoop(AircraftPosition ap);
     void IncomingWorldState(const char * payload, unsigned int length);
-    void AircraftNotification(SocketAddress & addr, std::string & name, std::string & callsign, bool active);
 
 private:
     enum State

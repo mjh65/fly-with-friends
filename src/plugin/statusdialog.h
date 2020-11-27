@@ -37,12 +37,16 @@ public:
 
     void ResetStatusReport();
     void SetStatusText(unsigned int i, const char* a);
+    void ResetRecordingButton();
 
 protected:
 private:
     static const unsigned int STATUS_LINES = 4;
     XPWidgetID          statusText[STATUS_LINES];
     XPWidgetID          leaveButton;
+#ifndef NDEBUG
+    XPWidgetID          recordButton;
+#endif
 };
 
 }

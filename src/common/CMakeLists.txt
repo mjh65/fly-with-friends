@@ -1,10 +1,11 @@
 target_sources(fwf_lib_common PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/addrfinder.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/aircraft.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/aircraftdb.cpp
     ${CMAKE_CURRENT_LIST_DIR}/clientlink.cpp
     ${CMAKE_CURRENT_LIST_DIR}/engine.cpp
     ${CMAKE_CURRENT_LIST_DIR}/fwfsocket.cpp
     ${CMAKE_CURRENT_LIST_DIR}/logger.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/members.cpp
     ${CMAKE_CURRENT_LIST_DIR}/prefs.cpp
     ${CMAKE_CURRENT_LIST_DIR}/sessionhub.cpp
     ${CMAKE_CURRENT_LIST_DIR}/sockcomms.cpp

@@ -23,12 +23,12 @@
 
 namespace fwf {
 
-static const bool infoLogging = true;
+static const bool infoLogging = false;
 static const bool verboseLogging = false;
 static const bool detailLogging = false;
 
 ClientLink::ClientLink(IPv4Address & a, int pn, const char * n, const char * cs, const char * pc)
-:   SessionDatabase(),
+:   TrackedAircraftDatabase(),
     UdpSocketOwner(),
     sessionServerAddress(a),
     sessionServerPort(pn),
@@ -68,12 +68,8 @@ void ClientLink::LeaveSession()
     }
 }
 
-float ClientLink::RunCycle(AircraftPosition& us, AircraftPosition* others, unsigned int* active)
+void ClientLink::SendOurAircraftData(AircraftPosition& us)
 {
-    std::lock_guard<std::mutex> lock(guard);
-    if (sessionState == GONE) return (float)10.0;
-    if (sessionState == LEAVING) return (float)0.5;
-
     if (!flightLoopDone.valid() || (flightLoopDone.wait_for(std::chrono::seconds(0)) == std::future_status::ready))
     {
         flightLoopDone = std::async(std::launch::async, &ClientLink::AsyncFlightLoop, this, us);
@@ -83,13 +79,6 @@ float ClientLink::RunCycle(AircraftPosition& us, AircraftPosition* others, unsig
     {
         LOG_VERBOSE(verboseLogging, "async flight loop skipped as previous loop still running");
     }
-    if (others && active)
-    {
-        // provide positions for the other aircraft, and set flags
-        *active = GetActiveMemberPositions(others);
-    }
-
-    return (sessionState == JOINING) ? (float)1.0 : (float)0.1;
 }
 
 bool ClientLink::Connected(std::string & addr, int & port, unsigned int & np)
@@ -102,7 +91,7 @@ bool ClientLink::Connected(std::string & addr, int & port, unsigned int & np)
 bool ClientLink::Connected(unsigned int & np)
 {
     std::lock_guard<std::mutex> lock(guard);
-    np = ActiveMemberCount();
+    np = ActiveAircraftCount();
     return (sessionState == JOINED);
 }
 
@@ -121,7 +110,7 @@ bool ClientLink::GetFlierIdentifiers(unsigned int id, std::string & n, std::stri
         return true;
     }
 
-    std::shared_ptr<SessionMember> m = FindMemberByIndex(id-1);
+    std::shared_ptr<TrackedAircraft> m = FindMemberByIndex(id-1);
     if (m)
     {
         n = m->Name();
@@ -196,6 +185,8 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
         return;
     }
 
+    uint32_t rcvTimestamp = (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() & 0xffffffff);
+
     // first 2 bytes are record counts for departed members and position updates
     uint8_t numDeparted = *p++;
     uint8_t numPositions = *p++;
@@ -213,7 +204,7 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
     }
 
     // now the list of updated aircraft positions
-    while (numPositions-- && (pl >= (sizeof(uint32_t) + SessionMember::EncodedPositionLength())))
+    while (numPositions-- && (pl >= (sizeof(uint32_t) + Aircraft::EncodedPositionLength())))
     {
         uint32_t uuid;
         memcpy(&uuid, p, sizeof(uint32_t));
@@ -233,14 +224,14 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
             continue; // ignore broadcast report of ourselves
         }
 
-        std::shared_ptr<SessionMember> m = FindMember(uuid);
+        std::shared_ptr<TrackedAircraft> m = FindMember(uuid);
         if (!m)
         {
             LOG_INFO(infoLogging, "first report from %08x", uuid);
-            m = std::make_shared<SessionMember>(uuid);
+            m = std::make_shared<TrackedAircraft>(uuid);
             if (AddMember(uuid, m) == MAX_IN_SESSION) continue;
         }
-        m->UpdatePosition(ap);
+        m->UpdateTracking(ap, rcvTimestamp);
     }
 
     // potentially a name/callsign of one of the members
@@ -252,7 +243,7 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
         p += sizeof(uint32_t);
         pl -= sizeof(uint32_t);
 
-        std::shared_ptr<SessionMember> m = FindMember(uuid);
+        std::shared_ptr<TrackedAircraft> m = FindMember(uuid);
         if (!m) return; // ignore if it's us or just an unknown member
 
         if (memchr(p, 0, pl))

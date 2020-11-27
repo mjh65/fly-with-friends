@@ -53,6 +53,8 @@ public:
     bool IsVRenabled();
     void StartSession(const char *addr, const char *port, const char *name, const char *callsign, const char *passcode);
     void StopSession();
+    void StartRecording();
+    void StopRecording();
 
 protected:
     void CreateStatusDialog();

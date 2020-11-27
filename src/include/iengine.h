@@ -48,11 +48,15 @@ public:
     virtual bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode) = 0;
     virtual void LeaveSession() = 0;
 
+    // start or stop recording the curent flight
+    virtual void StartRecording() = 0;
+    virtual void StopRecording() = 0;
+
     virtual std::string StatusSummary() = 0;
     virtual std::string StatusDetail(unsigned int i) = 0;
 
     // this group called from the simulation interfaces
-    virtual float DoFlightLoop(unsigned int n, unsigned int ms) = 0;
+    virtual float DoFlightLoop() = 0;
 
 };
 

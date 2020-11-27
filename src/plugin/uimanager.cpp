@@ -278,7 +278,11 @@ void UIManager::LeaveSession()
 
 void UIManager::ToggleStatus()
 {
-    if (statusDialog)
+    if (!statusDialog)
+    {
+        CreateStatusDialog();
+    }
+    else
     {
         statusDialog->MakeVisible(!statusDialog->IsVisible());
     }
@@ -339,12 +343,26 @@ void UIManager::StartSession(const char *addr, const char *port, const char *nam
 void UIManager::StopSession()
 {
     LOG_INFO(infoLogging,"stop session (state %d)",currentState);
+    StopRecording();
     engine->LeaveSession();
     engine->StopSessionServer();
     statusDialog->MakeVisible(false);
     statusDialog->ResetStatusReport();
     ReleasePlanes();
     currentState = IDLE;
+}
+
+void UIManager::StartRecording()
+{
+    LOG_INFO(infoLogging, "start recording flight");
+    engine->StartRecording();
+}
+
+void UIManager::StopRecording()
+{
+    LOG_INFO(infoLogging, "stop recording flight");
+    engine->StopRecording();
+    statusDialog->ResetRecordingButton();
 }
 
 void UIManager::CreateStatusDialog()

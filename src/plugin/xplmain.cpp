@@ -211,7 +211,7 @@ static float FlightLoop(float inElapsedSinceLastCall, float inElapsedTimeSinceLa
     elapsedMilliseconds += static_cast<unsigned int>(inElapsedSinceLastCall * 1000);
     LOG_VERBOSE(0,"X-Plane Flight Loop nunber %d, %0.3f seconds since previous call",inCounter,inElapsedSinceLastCall);
     float t1 = uimanager->UpdateDialogs();
-    float t2 = engine->DoFlightLoop(static_cast<unsigned int>(inCounter), elapsedMilliseconds);
+    float t2 = engine->DoFlightLoop();
     return std::min<float>(t1,t2);
 }
 

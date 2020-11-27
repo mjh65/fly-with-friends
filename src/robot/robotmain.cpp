@@ -19,10 +19,12 @@
 #ifdef TARGET_WINDOWS
 #include <WinSock2.h>
 #endif
+#include "ilogger.h"
 #include "flightreplay.h"
 #include "clientlink.h"
 #include "fwfsocket.h"
 #include <iostream>
+#include <filesystem>
 
 static void usage(const char* prog);
 
@@ -30,7 +32,8 @@ static const unsigned int ROBOT_TIMEOUT = 10;
 static unsigned int robotTimeout = ROBOT_TIMEOUT;
 
 int main(int argc, const char** argv)
-{    // required arguments are server address, port number, session passcode, replay file, number of loops
+{    
+    // required arguments are server address, port number, session passcode, replay file, number of loops
     if (argc < 6)
     {
         std::cerr << "Not enough arguments" << std::endl;
@@ -90,6 +93,9 @@ int main(int argc, const char** argv)
         std::cerr << "Session client startup failed" << std::endl;
         return 2;
     }
+
+    std::string logFile = std::filesystem::current_path().string() + "/fwf_robot.log";
+    std::shared_ptr<fwf::ILogger> logger = std::shared_ptr<fwf::ILogger>(fwf::ILogger::New(logFile.c_str()));
 
     int err = 0;
     robotTimeout = ROBOT_TIMEOUT;

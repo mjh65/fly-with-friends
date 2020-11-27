@@ -34,7 +34,6 @@ std::shared_ptr<IEngine> IEngine::New(std::shared_ptr<fwf::ISimData> si)
 Engine::Engine(std::shared_ptr<ISimData> si)
 :   simulation(si),
     findDelay(0),
-    loopNumber(0),
     frameNumber(0)
 {
 }
@@ -112,12 +111,21 @@ bool Engine::JoinSession(const char * addr, const int port, const char * name, c
     {
         return false;
     }
+    nextNetworkUpdateTime = std::chrono::steady_clock::now();
     return true;
 }
 
 void Engine::LeaveSession()
 {
     if (clientLink) clientLink->LeaveSession();
+}
+
+void Engine::StartRecording()
+{
+}
+
+void Engine::StopRecording()
+{
 }
 
 std::string Engine::StatusSummary()
@@ -157,28 +165,9 @@ std::string Engine::StatusDetail(unsigned int i)
     return detail;
 }
 
-float Engine::DoFlightLoop(unsigned int n, unsigned int ms)
+float Engine::DoFlightLoop()
 {
-    static unsigned int lastTimeInfo = 0;
-    float nextCall = (float)0.1; // might want to reduce this to get per-frame updating
-    loopNumber = n;
-    milliSeconds = ms;
     ++frameNumber;
-#ifndef _MSC_VER // TODO - sort out the localtime stuff for MSVC
-    if (infoLogging)
-    {
-        if (ms > (lastTimeInfo + 5000))
-        {
-            std::time_t time_now = std::time(nullptr);
-            char timeBuffer[32];
-            if (!strftime(timeBuffer, 32, "%H:%M:%S", std::localtime(&time_now))) strcpy(timeBuffer,"--:--:--");
-            LOG_INFO(infoLogging,"+++ %s +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++",timeBuffer);
-            LOG_INFO(infoLogging,"%d ms since previous log anchor");
-            lastTimeInfo = ms;
-        }
-    }
-#endif
-    LOG_VERBOSE(verboseLogging,"flight loop %u - %u - %ums", frameNumber, loopNumber, milliSeconds);
 
     // if no current session then next call in 10s
     if (!clientLink) return 10.0;
@@ -188,35 +177,38 @@ float Engine::DoFlightLoop(unsigned int n, unsigned int ms)
         return 10.0;
     }
 
-    AircraftPosition us;
-    simulation->GetUserAircraftPosition(us);
-    AircraftPosition others[MAX_IN_SESSION];
-    unsigned int active = 0;
-    nextCall = clientLink->RunCycle(us, others, &active);
-    for (unsigned int i = 0; i < MAX_IN_SESSION; ++i)
+    uint32_t msnow = (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() & 0xffffffff);
+
+    // is it time to update the server with our latest position etc?
+    if (std::chrono::steady_clock::now() >= nextNetworkUpdateTime)
     {
-        if (active & (1 << i))
+        AircraftPosition position;
+        simulation->GetUserAircraftPosition(position);
+        position.msTimestamp = msnow;
+        clientLink->SendOurAircraftData(position);
+        nextNetworkUpdateTime = std::chrono::steady_clock::now() + std::chrono::milliseconds(CLIENT_UPDATE_PERIOD_MS);
+    }
+
+    // get the latest (integrated) positions of the other aircraft
+    unsigned int activeOthers = clientLink->ActiveAircraftCount();
+    if (activeOthers > 0)
+    {
+        AircraftPosition others[MAX_IN_SESSION];
+        unsigned int active = clientLink->GetActiveMemberPositions(others, msnow);
+        for (unsigned int i = 0; i < MAX_IN_SESSION; ++i)
         {
-            simulation->SetOtherAircraftPosition(i+1, *(others + i));
+            if (active & (1 << i))
+            {
+                simulation->SetOtherAircraftPosition(i + 1, *(others + i));
+            }
         }
     }
 
-    unsigned int peerCount;
-    if (!clientLink->Connected(peerCount)) return (float)1.0;
-
-    return nextCall;
-}
-
-unsigned int Engine::LoopNumber()
-{
-    std::lock_guard<std::mutex> lock(guard);
-    return loopNumber;
-}
-
-unsigned int Engine::Milliseconds()
-{
-    std::lock_guard<std::mutex> lock(guard);
-    return milliSeconds;
+    // if there are other aircraft in the session we want to update every frame,
+    // otherwise we only need to do it enough to keep the connection alive
+    const float NEXT_FRAME = -1.0;
+    const float IDLE_PERIOD = 1000.0f / SERVER_BROADCAST_PERIOD_MS;
+    return (clientLink->ActiveAircraftCount() > 0) ? NEXT_FRAME : IDLE_PERIOD;
 }
 
 }

@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "members.h"
+#include "aircraftdb.h"
 #include "sockcomms.h"
 #include <map>
 #include <vector>
@@ -26,7 +26,7 @@
 namespace fwf
 {
 
-class SessionHub : public SessionDatabase, public UdpSocketOwner
+class SessionHub : public ServerDatabase, public UdpSocketOwner
 {
     // This class implements the FlyWithFriends session server.
 
@@ -59,9 +59,6 @@ private:
     std::mutex                      guard;
     bool                            running;
     unsigned int                    loopNumber;
-
-    //temporary - will change to inherited base class
-    //SessionDatabase* baseclass;
 };
 
 }
