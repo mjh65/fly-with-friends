@@ -104,10 +104,10 @@ void StatusDialog::SetStatusText(unsigned int i, const char *a)
     XPSetWidgetDescriptor(statusText[i], a);
 }
 
-void StatusDialog::ResetRecordingButton()
+void StatusDialog::SetRecordingButton(bool state)
 {
 #ifndef NDEBUG
-    XPSetWidgetProperty(recordButton, xpProperty_ButtonState, 0);
+    XPSetWidgetProperty(recordButton, xpProperty_ButtonState, state ? 1 : 0);
 #endif
 }
 

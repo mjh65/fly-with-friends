@@ -20,19 +20,22 @@
 #include "isimdata.h"
 #include "ilogger.h"
 #include <ctime>
+#include <sstream>
+#include <iomanip>
 
 namespace fwf {
 
 static const bool infoLogging = true;
 static const bool verboseLogging = false;
 
-std::shared_ptr<IEngine> IEngine::New(std::shared_ptr<fwf::ISimData> si)
+std::shared_ptr<IEngine> IEngine::New(std::shared_ptr<fwf::ISimData> si, std::string& dir)
 {
-    return std::make_shared<Engine>(si);
+    return std::make_shared<Engine>(si, dir);
 }
 
-Engine::Engine(std::shared_ptr<ISimData> si)
-:   simulation(si),
+Engine::Engine(std::shared_ptr<ISimData> si, std::string& dir)
+:   recordingsDir(dir),
+    simulation(si),
     findDelay(0),
     frameNumber(0)
 {
@@ -40,6 +43,7 @@ Engine::Engine(std::shared_ptr<ISimData> si)
 
 Engine::~Engine()
 {
+    StopRecording();
     LeaveSession();
     StopSessionServer();
     if (clientLink)
@@ -122,10 +126,25 @@ void Engine::LeaveSession()
 
 void Engine::StartRecording()
 {
+    if (recording || !clientLink) return;
+
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    struct tm timeinfo;
+    localtime_s(&timeinfo, &in_time_t);
+    std::stringstream ss;
+    ss << recordingsDir << std::put_time(&timeinfo, "FlightLog-%Y-%m-%d-%H-%M.fwf");
+    recording = std::make_unique<std::ofstream>(ss.str().c_str());
+    (*recording) << "FWFA" << std::endl;
+    (*recording) << "Recorded Flight" << std::endl;
+    (*recording) << "ROBOT" << std::endl;
+    (*recording) << (1000.0f / CLIENT_UPDATE_PERIOD_MS) << std::endl;
 }
 
 void Engine::StopRecording()
 {
+    if (!recording) return;
+    recording.reset();
 }
 
 std::string Engine::StatusSummary()
@@ -182,11 +201,22 @@ float Engine::DoFlightLoop()
     // is it time to update the server with our latest position etc?
     if (std::chrono::steady_clock::now() >= nextNetworkUpdateTime)
     {
+        nextNetworkUpdateTime = std::chrono::steady_clock::now() + std::chrono::milliseconds(CLIENT_UPDATE_PERIOD_MS);
+
         AircraftPosition position;
         simulation->GetUserAircraftPosition(position);
         position.msTimestamp = msnow;
         clientLink->SendOurAircraftData(position);
-        nextNetworkUpdateTime = std::chrono::steady_clock::now() + std::chrono::milliseconds(CLIENT_UPDATE_PERIOD_MS);
+        if (recording)
+        {
+            std::stringstream ss;
+            ss << "A," << std::setprecision(16)
+                << position.latitude << ',' << position.longitude << ',' << position.altitude << ','
+                << position.heading << ',' << position.pitch << ',' << position.roll << ','
+                << position.gear << ',' << position.flap << ',' << position.spoiler << ','
+                << position.speedBrake << ',' << position.slat << ',' << position.sweep;
+            (*recording) << ss.str() << std::endl;
+        }
     }
 
     // get the latest (integrated) positions of the other aircraft
@@ -208,7 +238,7 @@ float Engine::DoFlightLoop()
     // otherwise we only need to do it enough to keep the connection alive
     const float NEXT_FRAME = -1.0;
     const float IDLE_PERIOD = 1000.0f / SERVER_BROADCAST_PERIOD_MS;
-    return (clientLink->ActiveAircraftCount() > 0) ? NEXT_FRAME : IDLE_PERIOD;
+    return ((clientLink->ActiveAircraftCount() > 0) || (recording)) ? NEXT_FRAME : IDLE_PERIOD;
 }
 
 }

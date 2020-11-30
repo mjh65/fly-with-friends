@@ -32,7 +32,7 @@ class IEngine
 public:
     static const unsigned long MAX_IN_SESSION = 16;
 
-    static std::shared_ptr<IEngine> New(std::shared_ptr<fwf::ISimData> si);
+    static std::shared_ptr<IEngine> New(std::shared_ptr<fwf::ISimData> si, std::string& dir);
     virtual ~IEngine() {}
 
     // this group called from the UI/control classes
@@ -51,6 +51,7 @@ public:
     // start or stop recording the curent flight
     virtual void StartRecording() = 0;
     virtual void StopRecording() = 0;
+    virtual bool IsRecording() = 0;
 
     virtual std::string StatusSummary() = 0;
     virtual std::string StatusDetail(unsigned int i) = 0;

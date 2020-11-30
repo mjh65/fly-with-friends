@@ -23,7 +23,6 @@
 #include "hostdialog.h"
 #include "joindialog.h"
 #include "statusdialog.h"
-#include "XPLMPlugin.h"
 #include "XPLMDataAccess.h"
 #include "XPLMPlanes.h"
 
@@ -36,6 +35,8 @@ const int detailLogging = 0;
 UIManager::UIManager(std::shared_ptr<IPrefs> p, std::shared_ptr<IEngine> e)
 :   prefs(p),
     engine(e),
+    planesAreOwned(false),
+    joinFS(-1),
     currentDialog(0),
     currentState(IDLE)
 {
@@ -69,9 +70,10 @@ UIManager::~UIManager()
 
 bool UIManager::AcquirePlanes()
 {
+    if (planesAreOwned) return true;
     int r = XPLMAcquirePlanes(0, 0, 0);
     LOG_INFO(infoLogging, "initial attempt to acquire planes -> %d", r);
-    if (r) return true;
+    if (r) return (planesAreOwned = true); // deliberate assignment
 
     int total = 0, active = 0;
     XPLMPluginID planesOwner;
@@ -91,11 +93,14 @@ bool UIManager::AcquirePlanes()
         {
             // JoinFS seems to grab the planes on loading, but we assume that
             // it's fine to overrule this if our user has opened our dialog.
-            XPLMDisablePlugin(planesOwner);
+            joinFS = planesOwner;
+            XPLMDisablePlugin(joinFS); // deliberate assignment
             r = XPLMAcquirePlanes(0, 0, 0);
             LOG_INFO(infoLogging, "second attempt to acquire planes -> %d", r);
-            if (r) return true;
+            if (r) return (planesAreOwned = true); // deliberate assignment
             stat[0] = std::string("Couldn't acquire planes, even after disabling JoinFS.");
+            XPLMEnablePlugin(joinFS);
+            joinFS = -1;
         }
         else
         {
@@ -113,8 +118,13 @@ bool UIManager::AcquirePlanes()
 
 void UIManager::ReleasePlanes()
 {
-    XPLMReleasePlanes();
-    LOG_INFO(infoLogging, "released planes");
+    if (planesAreOwned)
+    {
+        XPLMReleasePlanes();
+        planesAreOwned = false;
+        LOG_INFO(infoLogging, "released planes");
+        if (joinFS >= 0) XPLMEnablePlugin(joinFS);
+    }
 }
 
 void UIManager::EnteredVR()
@@ -215,6 +225,7 @@ float UIManager::UpdateDialogs()
 void UIManager::ConfigureHosting()
 {
     LOG_INFO(infoLogging,"hosting selected (state %d)",currentState);
+    if (!AcquirePlanes()) return;
     if ((currentState != IDLE) && (currentState != JOIN_CONFIG)) return;
 
     if (statusDialog) statusDialog->MakeVisible(false);
@@ -243,6 +254,7 @@ void UIManager::ConfigureHosting()
 void UIManager::ConfigureJoining()
 {
     LOG_INFO(infoLogging,"join session selected (state %d)",currentState);
+    if (!AcquirePlanes()) return;
     if ((currentState != IDLE) && (currentState != HOST_CONFIG_NO_ADDR) && (currentState != HOST_CONFIG)) return;
 
     if (statusDialog) statusDialog->MakeVisible(false);
@@ -293,6 +305,11 @@ bool UIManager::IsVRenabled()
     XPLMDataRef dref = XPLMFindDataRef("sim/graphics/VR/enabled");
     int vrEnabled = dref ? XPLMGetDatai(dref) : false;
     return (vrEnabled != 0);
+}
+
+bool UIManager::IsRecording()
+{
+    return engine->IsRecording();
 }
 
 void UIManager::StartSession(const char *addr, const char *port, const char *name, const char *callsign, const char *passcode)
@@ -356,13 +373,14 @@ void UIManager::StartRecording()
 {
     LOG_INFO(infoLogging, "start recording flight");
     engine->StartRecording();
+    statusDialog->SetRecordingButton(1);
 }
 
 void UIManager::StopRecording()
 {
     LOG_INFO(infoLogging, "stop recording flight");
     engine->StopRecording();
-    statusDialog->ResetRecordingButton();
+    statusDialog->SetRecordingButton(0);
 }
 
 void UIManager::CreateStatusDialog()

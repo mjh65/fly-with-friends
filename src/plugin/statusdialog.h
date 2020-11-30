@@ -37,7 +37,7 @@ public:
 
     void ResetStatusReport();
     void SetStatusText(unsigned int i, const char* a);
-    void ResetRecordingButton();
+    void SetRecordingButton(bool state);
 
 protected:
 private:

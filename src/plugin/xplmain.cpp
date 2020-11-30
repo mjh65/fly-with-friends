@@ -44,6 +44,13 @@ static int fwfSubMenuJoin;
 static int fwfSubMenuLeave;
 static int fwfSubMenuToggleStatus;
 static int fwfSubMenuReload;
+
+static XPLMCommandRef fwfCommandSessionHost;
+static XPLMCommandRef fwfCommandSessionJoin;
+static XPLMCommandRef fwfCommandRecordingStart;
+static XPLMCommandRef fwfCommandRecordingStop;
+static XPLMCommandRef fwfCommandRecordingToggle;
+
 static XPLMFlightLoopID fwfFlightLoop;
 
 static const bool infoLogging = true;
@@ -53,6 +60,7 @@ static const bool debugLogging = false;
 extern "C" {
 
 static void MenuHandler(void *, void *);
+static int CommandHandler(XPLMCommandRef, XPLMCommandPhase, void*);
 static float FlightLoop(float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void * inRefcon);
 
 PLUGIN_API int XPluginStart(char * outName, char * outSig, char * outDesc)
@@ -70,13 +78,15 @@ PLUGIN_API int XPluginStart(char * outName, char * outSig, char * outDesc)
     char *filePart = XPLMExtractFileAndPath(path);
     if (filePart > path)
     {
-        strcpy_s(filePart-1, (1024-(filePart-path)), "/../fwf.log");
+        strcpy_s(filePart-1, (1024-(filePart-path)), "/../");
     }
     else
     {
         XPLMGetSystemPath(path);
-        strcat_s(path,"fwf.log");
     }
+    std::string dirPath(path);
+
+    strcat_s(path, "fwf.log");
     std::string logFile(path);
 
     XPLMGetPrefsPath(path);
@@ -104,7 +114,7 @@ PLUGIN_API int XPluginStart(char * outName, char * outSig, char * outDesc)
     // create all the main subsystems, and then check and share interfaces
     auto p = fwf::IPrefs::New(prefsFile.c_str()); prefs = p;
     auto s = fwf::ISimData::New(); simdata = s;
-    auto e = fwf::IEngine::New(simdata); engine = e;
+    auto e = fwf::IEngine::New(simdata, dirPath); engine = e;
     uimanager = std::unique_ptr<fwf::UIManager>(new fwf::UIManager(prefs, engine));
 
     if ((!uimanager) || (!simdata) || (!engine) || (!prefs))
@@ -125,6 +135,19 @@ PLUGIN_API int XPluginStart(char * outName, char * outSig, char * outDesc)
     fwfSubMenuLeave = XPLMAppendMenuItem(fwfMenu, "Leave session", (void*)"leave", 1);
     fwfSubMenuToggleStatus = XPLMAppendMenuItem(fwfMenu, "Toggle status window", (void*)"toggle", 1);
     fwfSubMenuReload = XPLMAppendMenuItem(fwfMenu, "Reload plugins", (void *)"reload", 1);
+
+    // Create commands and register handlers
+    
+    fwfCommandSessionHost = XPLMCreateCommand("FWF/Session/Host", "Host FWF session ...");
+    fwfCommandSessionJoin = XPLMCreateCommand("FWF/Session/Join", "Join FWF session ...");
+    fwfCommandRecordingStart = XPLMCreateCommand("FWF/Recording/Start", "Start FWF flight recording");
+    fwfCommandRecordingStop = XPLMCreateCommand("FWF/Recording/Stop", "Stop FWF recording");
+    fwfCommandRecordingToggle = XPLMCreateCommand("FWF/Recording/Toggle", "Toggle FWF recording mode");
+    XPLMRegisterCommandHandler(fwfCommandSessionHost, CommandHandler, true, 0);
+    XPLMRegisterCommandHandler(fwfCommandSessionJoin, CommandHandler, true, 0);
+    XPLMRegisterCommandHandler(fwfCommandRecordingStart, CommandHandler, true, 0);
+    XPLMRegisterCommandHandler(fwfCommandRecordingStop, CommandHandler, true, 0);
+    XPLMRegisterCommandHandler(fwfCommandRecordingToggle, CommandHandler, true, 0);
 
     // Register flight loop callback
     XPLMCreateFlightLoop_t fl = { sizeof(XPLMCreateFlightLoop_t), xplm_FlightLoop_Phase_AfterFlightModel, FlightLoop, 0 };
@@ -183,17 +206,11 @@ static void MenuHandler(void * mRef, void * iRef)
     }
     else if (cmd == "host")
     {
-        if (uimanager->AcquirePlanes())
-        {
-            uimanager->ConfigureHosting();
-        }
+        uimanager->ConfigureHosting();
     }
     else if (cmd == "join")
     {
-        if (uimanager->AcquirePlanes())
-        {
-            uimanager->ConfigureJoining();
-        }
+        uimanager->ConfigureJoining();
     }
     else if (cmd == "leave")
     {
@@ -203,6 +220,43 @@ static void MenuHandler(void * mRef, void * iRef)
     {
         uimanager->ToggleStatus();
     }
+}
+
+static int CommandHandler(XPLMCommandRef cmd, XPLMCommandPhase phase, void*)
+{
+    if (cmd == fwfCommandSessionHost)
+    {
+        uimanager->ConfigureHosting();
+        return 0;
+    }
+    else if (cmd == fwfCommandSessionJoin)
+    {
+        uimanager->ConfigureJoining();
+        return 0;
+    }
+    else if (cmd == fwfCommandRecordingStart)
+    {
+        uimanager->StartRecording();
+        return 0;
+    }
+    else if (cmd == fwfCommandRecordingStop)
+    {
+        uimanager->StopRecording();
+        return 0;
+    }
+    else if (cmd == fwfCommandRecordingToggle)
+    {
+        if (uimanager->IsRecording())
+        {
+            uimanager->StopRecording();
+        }
+        else
+        {
+            uimanager->StartRecording();
+        }
+        return 0;
+    }
+    return 1;
 }
 
 static float FlightLoop(float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void * inRefcon)

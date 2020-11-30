@@ -49,6 +49,8 @@ SimAccess::SimAccess()
     assert(userRoll);
     userHeading = XPLMFindDataRef("sim/flightmodel/position/psi");
     assert(userHeading);
+    userGear = XPLMFindDataRef("sim/flightmodel/movingparts/gear1def"); // only using this one to represent all
+    assert(userGear);
 
     std::string b0("sim/multiplayer/position/plane");
     for (unsigned int i = 1; i < 10; ++i) {
@@ -65,6 +67,8 @@ SimAccess::SimAccess()
         assert(otherRoll[i]);
         otherHeading[i] = XPLMFindDataRef((b0 + d + "_psi").c_str());
         assert(otherHeading[i]);
+        otherGear[i] = XPLMFindDataRef((b0 + d + "_gear_deploy").c_str());
+        assert(otherGear[i]);
     }
     std::string b1("sim/multiplayer/position/plane1");
     for (unsigned int i = 10; i < MAX_IN_SESSION; ++i) {
@@ -80,6 +84,9 @@ SimAccess::SimAccess()
         otherRoll[i] = XPLMFindDataRef((b1 + d + "_phi").c_str());
         assert(otherRoll[i]);
         otherHeading[i] = XPLMFindDataRef((b1 + d + "_psi").c_str());
+        assert(otherHeading[i]);
+        otherGear[i] = XPLMFindDataRef((b1 + d + "_gear_deploy").c_str());
+        assert(otherGear[i]);
     }
 
 }
@@ -96,7 +103,8 @@ void SimAccess::GetUserAircraftPosition(AircraftPosition& ap)
     ap.heading = XPLMGetDataf(userHeading);
     ap.pitch = XPLMGetDataf(userPitch);
     ap.roll = XPLMGetDataf(userRoll);
-    ap.gear = ap.flap = ap.spoiler = ap.speedBrake = ap.slat =ap.sweep = 0;
+    ap.gear = XPLMGetDataf(userGear);
+    ap.flap = ap.spoiler = ap.speedBrake = ap.slat = ap.sweep = 0.0f;
 #ifndef NDEBUG
     LOG_DEBUG(debugLogging, "A,%f,%f,%f,   %f,%f,%f,   %f,%f,%f,%f,%f,%f",
         ap.latitude, ap.longitude, ap.altitude, ap.heading, ap.pitch, ap.roll,
@@ -125,6 +133,9 @@ void SimAccess::SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap)
     XPLMSetDataf(otherHeading[id], static_cast<float>(ap.heading));
     XPLMSetDataf(otherPitch[id], static_cast<float>(ap.pitch));
     XPLMSetDataf(otherRoll[id], static_cast<float>(ap.roll));
+    float gear[10];
+    for (unsigned int i=0; i<10; ++i) gear[i] = static_cast<float>(ap.gear);
+    XPLMSetDatavf(otherGear[id], gear, 0, 10);
 }
 
 }

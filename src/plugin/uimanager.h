@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "XPLMPlugin.h"
 #include <memory>
 #include <string>
 
@@ -49,8 +50,9 @@ public:
     void ToggleStatus();
     float UpdateDialogs();
 
-    // called from dialog UI handlers
+    // called from dialog UI handlers 
     bool IsVRenabled();
+    bool IsRecording();
     void StartSession(const char *addr, const char *port, const char *name, const char *callsign, const char *passcode);
     void StopSession();
     void StartRecording();
@@ -69,6 +71,8 @@ private:
 private:
     std::shared_ptr<IPrefs>         prefs;
     std::shared_ptr<IEngine>        engine;
+    bool                            planesAreOwned;
+    XPLMPluginID                    joinFS;
     Dialog*                         currentDialog;
     std::unique_ptr<HostingDialog>  hostingDialog;
     std::unique_ptr<JoiningDialog>  joiningDialog;

@@ -40,7 +40,6 @@ public:
     // action functions called from the UI/sim/engine
     void LeaveSession();
     void SendOurAircraftData(AircraftPosition& us);
-    //float RunCycle(AircraftPosition &us, AircraftPosition *others = nullptr, unsigned int *active = nullptr);
 
     // Implementation of UdpSocketOwner
     void IncomingDatagram(AddressedDatagram dgin) override;

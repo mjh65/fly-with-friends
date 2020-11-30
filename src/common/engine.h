@@ -25,13 +25,14 @@
 #include "clientlink.h"
 #include <memory>
 #include <mutex>
+#include <fstream>
 
 namespace fwf {
 
 class Engine : public IEngine
 {
 public:
-    Engine(std::shared_ptr<ISimData> si);
+    Engine(std::shared_ptr<ISimData> si, std::string& dir);
     ~Engine();
 
     // IEngine implementation
@@ -42,6 +43,7 @@ public:
     void LeaveSession() override;
     void StartRecording() override;
     void StopRecording() override;
+    bool IsRecording() override { return  (recording != nullptr); }
     std::string StatusSummary() override;
     std::string StatusDetail(unsigned int i) override;
     float DoFlightLoop() override;
@@ -49,6 +51,8 @@ public:
 protected:
 
 private:
+    const std::string                   recordingsDir;
+
     // thread access control
     std::mutex                          guard;
 
@@ -62,10 +66,14 @@ private:
     std::unique_ptr<IPAddrFinder>       addrFinder;
     unsigned int                        findDelay;
 
+    // session server, if hosting
     std::unique_ptr<SessionHub>         sessionHub;
 
     // background task object coordinating with the session server
     std::unique_ptr<ClientLink>         clientLink;
+
+    // output file if flight is being recorded
+    std::unique_ptr<std::ofstream>      recording;
 
     // monotonically incrementing flight loop, time counter and frame numbers
     std::chrono::time_point<std::chrono::steady_clock>

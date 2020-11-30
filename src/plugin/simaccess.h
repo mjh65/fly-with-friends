@@ -46,6 +46,7 @@ private:
     XPLMDataRef     userPitch;
     XPLMDataRef     userRoll;
     XPLMDataRef     userHeading;
+    XPLMDataRef     userGear;
     // TODO - extend with aircraft state
 
     XPLMDataRef     otherX[MAX_IN_SESSION];
@@ -54,6 +55,7 @@ private:
     XPLMDataRef     otherPitch[MAX_IN_SESSION];
     XPLMDataRef     otherRoll[MAX_IN_SESSION];
     XPLMDataRef     otherHeading[MAX_IN_SESSION];
+    XPLMDataRef     otherGear[MAX_IN_SESSION];
     // TODO - extend with orientation and state
 };
 
