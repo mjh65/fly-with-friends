@@ -28,7 +28,7 @@
 #include <unistd.h>
 #endif
 #include "addrfinder.h"
-
+#include "fwfporting.h"
 
 namespace fwf {
 
@@ -61,7 +61,7 @@ std::string IPAddrFinder::AsyncGetPublicAddress()
     if (!ipify(addrStr, sizeof(addrStr)))
     {
         int a0,a1,a2,a3;
-        if (sscanf_s(addrStr, "%d.%d.%d.%d", &a0, &a1, &a2, &a3) == 4)
+        if (SSCANF(addrStr, "%d.%d.%d.%d", &a0, &a1, &a2, &a3) == 4)
         {
             addr = addrStr;
         }

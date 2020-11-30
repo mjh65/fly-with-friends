@@ -18,21 +18,20 @@
 
 #pragma once
 
-#include <memory>
-
-namespace fwf {
-
-struct AircraftPosition;
-
-// Callbacks from the engine to access X-Plane (or other host application)
-
-class ISimData
-{
-public:
-    static std::shared_ptr<ISimData> New();
-    virtual void GetUserAircraftPosition(AircraftPosition &ap) = 0;
-    virtual void SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap) = 0;
-};
-
-}
+#if defined(TARGET_WINDOWS)
+#define SPRINTF sprintf_s
+#define SSCANF sscanf_s
+#define STRCAT strcat_s
+#define STRCPY strcpy_s
+#define STRNCPY strncpy_s
+#define LOCALTIME(t,s) localtime_s(s,t)
+#elif defined(TARGET_MACOSX)
+#define SPRINTF sprintf
+#define SSCANF sscanf
+#define STRCAT strcat
+#define STRCPY(t,n,s) strcpy(t,s)
+#define STRNCPY strncpy
+#define LOCALTIME localtime_r
+#elif defined(TARGET_LINUX)
+#endif
 

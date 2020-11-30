@@ -23,6 +23,7 @@
 #include "hostdialog.h"
 #include "joindialog.h"
 #include "statusdialog.h"
+#include "fwfporting.h"
 #include "XPLMDataAccess.h"
 #include "XPLMPlanes.h"
 
@@ -37,16 +38,15 @@ UIManager::UIManager(std::shared_ptr<IPrefs> p, std::shared_ptr<IEngine> e)
     engine(e),
     planesAreOwned(false),
     joinFS(-1),
-    currentDialog(0),
     currentState(IDLE)
 {
     char s[16];
-    sprintf_s(s,"%u",prefs->HostingPort());
+    SPRINTF(s,"%u",prefs->HostingPort());
     hostingPort = s;
     pilotName = prefs->Name();
     pilotCallsign = prefs->Callsign();
     serverAddr = prefs->ServerAddr();
-    sprintf_s(s,"%u",prefs->ServerPort());
+    SPRINTF(s,"%u",prefs->ServerPort());
     serverPort = s;
     sessionPasscode = prefs->Passcode();
 }
@@ -54,14 +54,14 @@ UIManager::UIManager(std::shared_ptr<IPrefs> p, std::shared_ptr<IEngine> e)
 UIManager::~UIManager()
 {
     int pnum;
-    if (sscanf_s(hostingPort.c_str(), "%u", &pnum) == 1)
+    if (SSCANF(hostingPort.c_str(), "%u", &pnum) == 1)
     {
         prefs->HostingPort(pnum);
     }
     prefs->Name(pilotName);
     prefs->Callsign(pilotCallsign);
     prefs->ServerAddr(serverAddr);
-    if (sscanf_s(serverPort.c_str(), "%u", &pnum) == 1)
+    if (SSCANF(serverPort.c_str(), "%u", &pnum) == 1)
     {
         prefs->ServerPort(pnum);
     }
@@ -312,7 +312,7 @@ bool UIManager::IsRecording()
     return engine->IsRecording();
 }
 
-void UIManager::StartSession(const char *addr, const char *port, const char *name, const char *callsign, const char *passcode)
+void UIManager::StartSession(const char *addr, const char *port, const char *name, const char *callsign, const char *passcode, bool logging)
 {
     LOG_INFO(infoLogging,"start session (state %d)",currentState);
     if ((currentState != HOST_CONFIG) && (currentState != JOIN_CONFIG)) return;
@@ -322,9 +322,9 @@ void UIManager::StartSession(const char *addr, const char *port, const char *nam
 
     // convert port string to int (and back) to check validity
     int portNumber;
-    if (sscanf_s(port, "%u", &portNumber) != 1) return;
+    if (SSCANF(port, "%u", &portNumber) != 1) return;
     char portStr[16];
-    sprintf_s(portStr, "%u", portNumber);
+    SPRINTF(portStr, "%u", portNumber);
 
     pilotName = name;
     pilotCallsign = callsign;
@@ -341,10 +341,10 @@ void UIManager::StartSession(const char *addr, const char *port, const char *nam
 
     if (currentState == HOST_CONFIG)
     {
-        engine->StartSessionServer(portNumber, passcode);
+        engine->StartSessionServer(portNumber, passcode, logging);
         LOG_VERBOSE(detailLogging,"started session server (external app)");
     }
-    if (!engine->JoinSession(addr, portNumber, name, callsign, passcode)) return; // TODO - tell user why this failed
+    if (!engine->JoinSession(addr, portNumber, name, callsign, passcode, logging)) return; // TODO - tell user why this failed
     LOG_VERBOSE(detailLogging,"started session client");
 
     if (hostingDialog) hostingDialog->MakeVisible(false);

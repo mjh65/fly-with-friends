@@ -23,6 +23,7 @@
 #include "flightreplay.h"
 #include "clientlink.h"
 #include "fwfsocket.h"
+#include "fwfporting.h"
 #include <iostream>
 #include <filesystem>
 
@@ -48,7 +49,7 @@ int main(int argc, const char** argv)
         return 1;
     }
     int port;
-    if (sscanf_s(*(argv + 2), "%d", &port) != 1)
+    if (SSCANF(*(argv + 2), "%d", &port) != 1)
     {
         std::cerr << "Bad port number: " << *(argv + 2) << std::endl;
         usage(*argv);
@@ -56,7 +57,7 @@ int main(int argc, const char** argv)
     }
     std::string passcode(*(argv + 3));
     unsigned int loops;
-    if ((sscanf_s(*(argv + 5), "%u", &loops) != 1) || (loops < 1) || (loops > 99))
+    if ((SSCANF(*(argv + 5), "%u", &loops) != 1) || (loops < 1) || (loops > 99))
     {
         std::cerr << "Bad loop count: " << *(argv + 5) << std::endl;
         usage(*argv);
@@ -132,7 +133,9 @@ int main(int argc, const char** argv)
         err = 3;
     }
 
+#ifdef TARGET_WINDOWS
     WSACleanup();
+#endif
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     return err;
 }

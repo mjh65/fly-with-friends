@@ -16,23 +16,29 @@
  *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#pragma once
-
-#include <memory>
+#include "datagrams.h"
 
 namespace fwf {
 
-struct AircraftPosition;
+const char* xdigits = "0123456789abcdef";
 
-// Callbacks from the engine to access X-Plane (or other host application)
-
-class ISimData
+std::string AddressedDatagram::LogString()
 {
-public:
-    static std::shared_ptr<ISimData> New();
-    virtual void GetUserAircraftPosition(AircraftPosition &ap) = 0;
-    virtual void SetOtherAircraftPosition(unsigned int id, AircraftPosition& ap) = 0;
-};
+    std::string str;
+    str += address.GetAsString();
+    str += ':';
+    size_t n = str.size();
+    str.resize(n + (2 * datagram->Length()));
+    char* s = datagram->Buffer();
+    char* d = const_cast<char *>(str.c_str() + n);
+    for (unsigned int i = 0; i < datagram->Length(); ++i)
+    {
+        int c = *s++;
+        *d++ = xdigits[(c & 0xf0) >> 4];
+        *d++ = xdigits[c & 0x0f];
+    }
+    return str;
+}
 
 }
 

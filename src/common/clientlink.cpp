@@ -20,12 +20,14 @@
 #include "datagrams.h"
 #include "engine.h"
 #include "ilogger.h"
+#include "fwfporting.h"
+#include <sstream>
+#include <iomanip>
 
 namespace fwf {
 
 static const bool infoLogging = false;
 static const bool verboseLogging = false;
-static const bool detailLogging = false;
 
 ClientLink::ClientLink(IPv4Address & a, int pn, const char * n, const char * cs, const char * pc)
 :   TrackedAircraftDatabase(),
@@ -46,6 +48,35 @@ ClientLink::ClientLink(IPv4Address & a, int pn, const char * n, const char * cs,
     t2 |= (unsigned int)time(0);
     srand(t2);
     sessionUUID = rand();
+}
+
+ClientLink::ClientLink(IPv4Address& a, int pn, const char* n, const char* cs, const char* pc, const char* logDirPath)
+:   TrackedAircraftDatabase(),
+    UdpSocketOwner(),
+    sessionServerAddress(a),
+    sessionServerPort(pn),
+    name(n),
+    callsign(cs),
+    passcode(pc),
+    sessionUUID(0),
+    serverConnection(this, std::string("SMGR")),
+    frameNumber(1),
+    sessionState(JOINING)
+{
+    std::string t1 = std::string(n) + callsign + passcode;
+    unsigned int t2;
+    memcpy(&t2, t1.c_str(), sizeof(unsigned int));
+    t2 |= (unsigned int)time(0);
+    srand(t2);
+    sessionUUID = rand();
+
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    struct tm timeinfo;
+    LOCALTIME(&in_time_t, &timeinfo);
+    std::stringstream ss;
+    ss << logDirPath << std::put_time(&timeinfo, "ClientPkts-%Y-%m-%d-%H-%M.fwf");
+    datagramLog = std::make_unique<std::ofstream>(ss.str().c_str());
 }
 
 ClientLink::~ClientLink()
@@ -146,6 +177,12 @@ bool ClientLink::AsyncDisconnectFromSession()
     for (size_t i=0; i<10; ++i)
     {
         LOG_INFO(infoLogging,"sending leave notification");
+        if (datagramLog)
+        {
+            std::string s = leave->LogString();
+            std::lock_guard<std::mutex> lock(logGuard);
+            (*datagramLog) << "S:" << TIMENOWMS32() << ':' << s << std::endl;
+        }
         serverConnection.QueueDatagram(leave);
         std::this_thread::sleep_for(std::chrono::milliseconds(3));
     }
@@ -159,6 +196,14 @@ bool ClientLink::AsyncDisconnectFromSession()
 // called from socket thread
 void ClientLink::IncomingDatagram(AddressedDatagram dgin)
 {
+    // if enabled, log everything we receive
+    if (datagramLog)
+    {
+        std::string s = dgin.LogString();
+        std::lock_guard<std::mutex> lock(logGuard);
+        (*datagramLog) << "R:" << TIMENOWMS32() << ':' << s << std::endl;
+    }
+
     // extract seq-num, command, payload-length
     Datagram * d = dgin.Data();
     uint32_t sn = d->SequenceNumber();
@@ -170,8 +215,6 @@ void ClientLink::IncomingDatagram(AddressedDatagram dgin)
     {
         IncomingWorldState(d->Payload(), pl);
     }
-
-    std::lock_guard<std::mutex> lock(guard);
 }
 
 // called from socket thread
@@ -185,7 +228,7 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
         return;
     }
 
-    uint32_t rcvTimestamp = (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() & 0xffffffff);
+    uint32_t rcvTimestamp = TIMENOWMS32();
 
     // first 2 bytes are record counts for departed members and position updates
     uint8_t numDeparted = *p++;
@@ -213,7 +256,7 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
         pl -= sizeof(uint32_t);
 
         AircraftPosition ap;
-        unsigned int apl = DecodeAircraftPosition(ap, p);
+        unsigned int apl = ap.DecodeFrom(p);
         p += apl;
         pl -= apl;
 
@@ -287,7 +330,7 @@ bool ClientLink::AsyncFlightLoop(AircraftPosition ap)
     memcpy(p, &uuid, sizeof(uuid));
     p += sizeof(uuid);
 
-    p += EncodeAircraftPosition(ap, p);
+    p += ap.EncodeTo(p);
 
     bool sendNameCallsign = false;
     {
@@ -297,15 +340,21 @@ bool ClientLink::AsyncFlightLoop(AircraftPosition ap)
     if (sendNameCallsign)
     {
         unsigned int pl = MAX_PAYLOAD_LEN - ((unsigned int)(p - d->Payload()));
-        strcpy_s(p, pl, name.c_str());
+        STRCPY(p, pl, name.c_str());
         p += name.size() + 1;
         pl -= (unsigned int)(name.size() + 1);
-        strcpy_s(p, pl, callsign.c_str());
+        STRCPY(p, pl, callsign.c_str());
         p += callsign.size() + 1;
         pl -= (unsigned int)(callsign.size() + 1);
     }
 
     d->SetPayloadLength((unsigned int)(p - d->Payload()));
+    if (datagramLog)
+    {
+        std::string s = report->LogString();
+        std::lock_guard<std::mutex> lock(logGuard);
+        (*datagramLog) << "S:" << TIMENOWMS32() << ':' << s << std::endl;
+    }
     serverConnection.QueueDatagram(report);
 
     CheckLapsedMembership();

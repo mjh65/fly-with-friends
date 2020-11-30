@@ -28,6 +28,20 @@
 
 namespace fwf {
 
+// Aircraft position, oriententation (and other state?)
+
+struct AircraftPosition
+{
+    uint32_t        msTimestamp;
+    double          latitude, longitude, altitude;
+    double          heading, pitch, roll;
+    double          gear, flap, spoiler, speedBrake, slat, sweep;
+    static const unsigned int ENCODED_SIZE = sizeof(uint32_t) + (3 * sizeof(int32_t)) + (3 * sizeof(int16_t)) + (6 * sizeof(uint8_t));
+
+    unsigned int EncodeTo(char* buffer);
+    unsigned int DecodeFrom(const char* buffer);
+};
+
 class Aircraft
 {
 public:

@@ -18,6 +18,7 @@
  */
 
 #include "logger.h"
+#include "fwfporting.h"
 #include <cstdarg>
 #include <cstring>
 #ifndef _MSC_VER
@@ -107,7 +108,7 @@ void Logger::log(const char pfx, const char *file, const char *function, const i
 {
     std::lock_guard<std::mutex> lock(logMutex);
     
-    strncpy_s(scratchFile, file, sizeof(scratchFile) - 1);
+    STRNCPY(scratchFile, file, sizeof(scratchFile) - 1);
     snprintf(scratchFormat,  sizeof(scratchFormat), "%c:%s::%s():%d %s", pfx, basename(scratchFile), function, line, format);
     vsnprintf(scratchLine, sizeof(scratchLine), scratchFormat, args);
     logFile << scratchLine << std::endl;

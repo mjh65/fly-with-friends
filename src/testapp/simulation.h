@@ -19,6 +19,7 @@
 #pragma once
 
 #include "isimdata.h"
+#include "aircraft.h"
 
 namespace fwf {
 

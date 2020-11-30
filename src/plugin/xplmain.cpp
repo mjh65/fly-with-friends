@@ -20,6 +20,7 @@
 #include "iengine.h"
 #include "isimdata.h"
 #include "iprefs.h"
+#include "fwfporting.h"
 #include "uimanager.h"
 #include "XPLMPlugin.h"
 #include "XPLMProcessing.h"
@@ -55,7 +56,7 @@ static XPLMFlightLoopID fwfFlightLoop;
 
 static const bool infoLogging = true;
 static const bool verboseLogging = true;
-static const bool debugLogging = false;
+//static const bool debugLogging = false;
 
 extern "C" {
 
@@ -65,9 +66,9 @@ static float FlightLoop(float inElapsedSinceLastCall, float inElapsedTimeSinceLa
 
 PLUGIN_API int XPluginStart(char * outName, char * outSig, char * outDesc)
 {
-    strcpy_s(outName, 256, "Fly-With-Friends");
-    strcpy_s(outSig, 256, "hasling.michael.flywithfriends");
-    strcpy_s(outDesc, 256, "A lightweight plugin for group flying");
+    STRCPY(outName, 256, "Fly-With-Friends");
+    STRCPY(outSig, 256, "hasling.michael.flywithfriends");
+    STRCPY(outDesc, 256, "A lightweight plugin for group flying");
 
     XPLMEnableFeature("XPLM_USE_NATIVE_PATHS",1);
     XPLMEnableFeature("XPLM_USE_NATIVE_WIDGET_WINDOWS",1);
@@ -78,7 +79,7 @@ PLUGIN_API int XPluginStart(char * outName, char * outSig, char * outDesc)
     char *filePart = XPLMExtractFileAndPath(path);
     if (filePart > path)
     {
-        strcpy_s(filePart-1, (1024-(filePart-path)), "/../");
+        STRCPY(filePart-1, (1024-(filePart-path)), "/../");
     }
     else
     {
@@ -86,12 +87,12 @@ PLUGIN_API int XPluginStart(char * outName, char * outSig, char * outDesc)
     }
     std::string dirPath(path);
 
-    strcat_s(path, "fwf.log");
+    STRCAT(path, "fwf.log");
     std::string logFile(path);
 
     XPLMGetPrefsPath(path);
     filePart = XPLMExtractFileAndPath(path);
-    strcpy_s(filePart-1, (1024 - (filePart - path)), "/flywithfriends.prf");
+    STRCPY(filePart-1, (1024 - (filePart - path)), "/flywithfriends.prf");
     std::string prefsFile(path);
 
     if (!(logger = std::unique_ptr<fwf::ILogger>(fwf::ILogger::New(logFile.c_str()))))

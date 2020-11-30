@@ -37,9 +37,9 @@ public:
 
     // IEngine implementation
     bool GetPublicIPAddress(std::string & ipaddr) override;
-    void StartSessionServer(const int port, const char * passcode) override;
+    void StartSessionServer(const int port, const char * passcode, bool logging) override;
     void StopSessionServer() override;
-    bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode) override;
+    bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode, bool logging) override;
     void LeaveSession() override;
     void StartRecording() override;
     void StopRecording() override;
@@ -51,7 +51,8 @@ public:
 protected:
 
 private:
-    const std::string                   recordingsDir;
+    // location of logging and recording files
+    const std::string                   workDirPath;
 
     // thread access control
     std::mutex                          guard;

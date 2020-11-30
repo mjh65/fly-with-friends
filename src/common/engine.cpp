@@ -19,6 +19,7 @@
 #include "engine.h"
 #include "isimdata.h"
 #include "ilogger.h"
+#include "fwfporting.h"
 #include <ctime>
 #include <sstream>
 #include <iomanip>
@@ -26,7 +27,6 @@
 namespace fwf {
 
 static const bool infoLogging = true;
-static const bool verboseLogging = false;
 
 std::shared_ptr<IEngine> IEngine::New(std::shared_ptr<fwf::ISimData> si, std::string& dir)
 {
@@ -34,7 +34,7 @@ std::shared_ptr<IEngine> IEngine::New(std::shared_ptr<fwf::ISimData> si, std::st
 }
 
 Engine::Engine(std::shared_ptr<ISimData> si, std::string& dir)
-:   recordingsDir(dir),
+:   workDirPath(dir),
     simulation(si),
     findDelay(0),
     frameNumber(0)
@@ -87,11 +87,19 @@ bool Engine::GetPublicIPAddress(std::string & ipaddr)
     return result;
 }
 
-void Engine::StartSessionServer(const int p, const char * passcode)
+void Engine::StartSessionServer(const int p, const char * passcode, bool logging)
 {
     if (!sessionHub)
     {
-        sessionHub = std::make_unique<SessionHub>(p, passcode);
+        if (logging)
+        {
+            sessionHub = std::make_unique<SessionHub>(p, passcode, workDirPath.c_str());
+
+        }
+        else
+        {
+            sessionHub = std::make_unique<SessionHub>(p, passcode);
+        }
     }
 }
 
@@ -102,14 +110,21 @@ void Engine::StopSessionServer()
     sessionHub.reset();
 }
 
-bool Engine::JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode)
+bool Engine::JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode, bool logging)
 {
     // called from UI/control when user wants to join session
     IPv4Address a(addr);
     if (!a.IsValid()) return false;
     try
     {
-        clientLink = std::make_unique<ClientLink>(a, port, name, callsign, passcode);
+        if (logging)
+        {
+            clientLink = std::make_unique<ClientLink>(a, port, name, callsign, passcode, workDirPath.c_str());
+        }
+        else
+        {
+            clientLink = std::make_unique<ClientLink>(a, port, name, callsign, passcode);
+        }
     }
     catch (...)
     {
@@ -131,9 +146,9 @@ void Engine::StartRecording()
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
     struct tm timeinfo;
-    localtime_s(&timeinfo, &in_time_t);
+    LOCALTIME(&in_time_t, &timeinfo);
     std::stringstream ss;
-    ss << recordingsDir << std::put_time(&timeinfo, "FlightLog-%Y-%m-%d-%H-%M.fwf");
+    ss << workDirPath << std::put_time(&timeinfo, "FlightLog-%Y-%m-%d-%H-%M.fwf");
     recording = std::make_unique<std::ofstream>(ss.str().c_str());
     (*recording) << "FWFA" << std::endl;
     (*recording) << "Recorded Flight" << std::endl;
@@ -158,11 +173,11 @@ std::string Engine::StatusSummary()
 
     if (connected)
     {
-        sprintf_s(status, "Session active [%s:%d] %u other flier%s", addr.c_str(), port, peerCount, ((peerCount == 1) ? "" : "s"));
+        SPRINTF(status, "Session active [%s:%d] %u other flier%s", addr.c_str(), port, peerCount, ((peerCount == 1) ? "" : "s"));
     }
     else
     {
-        sprintf_s(status, "Connecting ...");
+        SPRINTF(status, "Connecting ...");
     }
     return std::string(status);
 }
@@ -196,7 +211,7 @@ float Engine::DoFlightLoop()
         return 10.0;
     }
 
-    uint32_t msnow = (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() & 0xffffffff);
+    uint32_t msnow = TIMENOWMS32();
 
     // is it time to update the server with our latest position etc?
     if (std::chrono::steady_clock::now() >= nextNetworkUpdateTime)

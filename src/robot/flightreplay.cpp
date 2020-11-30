@@ -18,14 +18,15 @@
 
 #include "flightreplay.h"
 #include "ilogger.h"
+#include "fwfporting.h"
 #include <cstring>
 
 namespace fwf
 {
 
-static const bool infoLogging = true;
+//static const bool infoLogging = true;
 static const bool verboseLogging = true;
-static const bool debugLogging = true;
+//static const bool debugLogging = true;
 
 inline std::string NextLine(char*& buffer)
 {
@@ -73,7 +74,7 @@ FlightReplay::FlightReplay(const char* p, unsigned int l)
 
     std::string feedRateString(NextLine(b));
     float rate;
-    if (sscanf_s(feedRateString.c_str(), "%f", &rate) != 1) throw - 4;
+    if (SSCANF(feedRateString.c_str(), "%f", &rate) != 1) throw - 4;
     periodMs = static_cast<unsigned int>((float)1000 / rate + 0.5);
 
     nextSampleOffset = samplesStartOffset = (unsigned int)(b - buffer.get());
@@ -116,7 +117,7 @@ bool FlightReplay::AsyncReplayFlight()
     while (running && Next())
     {
         std::this_thread::sleep_until(nextWakeTime);
-        position.msTimestamp = (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() & 0xffffffff);
+        position.msTimestamp = TIMENOWMS32();
         LOG_VERBOSE(verboseLogging, "send position, ts=%u, lat=%3.5f, lon=%3.5f", position.msTimestamp, position.latitude, position.longitude);
         clientLink->SendOurAircraftData(position);
         nextWakeTime += std::chrono::milliseconds(periodMs);
@@ -203,7 +204,7 @@ bool FlightReplay::DecodeAsciiCSV(std::string& csv)
     if ((psep - p) > 1)
     {
         unsigned int repeats = 0;
-        if ((sscanf_s(p + 1, "%u", &repeats) == 1) && (repeats > 1))
+        if ((SSCANF(p + 1, "%u", &repeats) == 1) && (repeats > 1))
         {
             delta.latitude = delta.longitude = delta.altitude = 0.0;
             delta.heading = delta.pitch = delta.roll = 0.0;
@@ -219,7 +220,7 @@ bool FlightReplay::DecodeAsciiCSV(std::string& csv)
         double x, y, z;
         float i, j, k;
         float a, b, c, d, e, f;
-        int nFields = sscanf_s(psep + 1, "%lf,%lf,%lf,%f,%f,%f,%f,%f,%f,%f,%f,%f",
+        int nFields = SSCANF(psep + 1, "%lf,%lf,%lf,%f,%f,%f,%f,%f,%f,%f,%f,%f",
             &x, &y, &z, &i, &j, &k, &a, &b, &c, &d, &e, &f);
         if (nFields != 12) return false;
         position.latitude = x;
@@ -239,7 +240,7 @@ bool FlightReplay::DecodeAsciiCSV(std::string& csv)
     {
         // relative location only
         double x, y, z;
-        int nFields = sscanf_s(psep + 1, "%lf,%lf,%lf", &x, &y, &z);
+        int nFields = SSCANF(psep + 1, "%lf,%lf,%lf", &x, &y, &z);
         if (nFields != 3) return false;
         delta.latitude = x;
         delta.longitude = y;
@@ -251,7 +252,7 @@ bool FlightReplay::DecodeAsciiCSV(std::string& csv)
         // relative location and orientation
         double x, y, z;
         float i, j, k;
-        int nFields = sscanf_s(psep + 1, "%lf,%lf,%lf,%f,%f,%f", &x, &y, &z, &i, &j, &k);
+        int nFields = SSCANF(psep + 1, "%lf,%lf,%lf,%f,%f,%f", &x, &y, &z, &i, &j, &k);
         if (nFields != 6) return false;
         delta.latitude = x;
         delta.longitude = y;

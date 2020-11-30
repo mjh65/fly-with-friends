@@ -23,11 +23,15 @@
 #else
 #endif
 #include "fwfconsts.h"
+#include "fwfsocket.h"
 #include "isimdata.h"
 #include <memory>
 #include <cassert>
+#include <chrono>
 
 namespace fwf {
+
+inline uint32_t TIMENOWMS32() { return static_cast<uint32_t>((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) & 0xffffffff); }
 
 // Wrapper for UDP datagrams.
 
@@ -109,90 +113,12 @@ public:
     void SetAddress(SocketAddress s) { address = s; }
     Datagram * Data() { return datagram.get(); }
     SocketAddress & Address() { return address; }
+    std::string LogString();
 protected:
 private:
     std::shared_ptr<Datagram>   datagram;
     SocketAddress               address;
 };
-
-
-inline unsigned int EncodeAircraftPosition(const AircraftPosition &ap, char* buffer)
-{
-    char* p = buffer;
-    uint32_t ts = htonl(ap.msTimestamp);
-    memcpy(p, &ts, sizeof(ts));
-    p += sizeof(ts);
-    int32_t i32 = htonl(static_cast<int32_t>(ap.latitude * (1 << 23))); // convert to 9.23 fixed point
-    memcpy(p, &i32, sizeof(i32));
-    p += sizeof(i32);
-    i32 = htonl(static_cast<int32_t>(ap.longitude * (1 << 23))); // convert to 9.23 fixed point
-    memcpy(p, &i32, sizeof(i32));
-    p += sizeof(i32);
-    i32 = htonl(static_cast<int32_t>(ap.altitude * (1 << 8))); // convert to 24.8 fixed point
-    memcpy(p, &i32, sizeof(i32));
-    p += sizeof(i32);
-    uint16_t u16 = htons(static_cast<uint16_t>(ap.heading * (1 << 7))); // convert to 9.7 fixed point
-    memcpy(p, &u16, sizeof(u16));
-    p += sizeof(u16);
-    int16_t i16 = htons(static_cast<int16_t>(ap.pitch * (1 << 7))); // convert to 9.7 fixed point
-    memcpy(p, &i16, sizeof(i16));
-    p += sizeof(i16);
-    i16 = htons(static_cast<int16_t>(ap.roll * (1 << 7))); // convert to 9.7 fixed point
-    memcpy(p, &i16, sizeof(i16));
-    p += sizeof(i16);
-    *p++ = static_cast<uint8_t>(ap.gear * 255);
-    *p++ = static_cast<uint8_t>(ap.flap * 255);
-    *p++ = static_cast<uint8_t>(ap.spoiler * 255);
-    *p++ = static_cast<uint8_t>(ap.speedBrake * 255);
-    *p++ = static_cast<uint8_t>(ap.slat * 255);
-    *p++ = static_cast<uint8_t>(ap.sweep * 255);
-    return (unsigned int)(p - buffer);
-}
-
-inline unsigned int DecodeAircraftPosition(AircraftPosition& ap, const char* buffer)
-{
-    const char* p = buffer;
-    uint32_t ts;
-    memcpy(&ts, p, sizeof(ts));
-    ap.msTimestamp = ntohl(ts);
-    p += sizeof(ts);
-    int32_t i32;
-    memcpy(&i32, p, sizeof(i32));
-    i32 = ntohl(i32);
-    ap.latitude = static_cast<double>(i32) / (1 << 23); // convert from 9.23 fixed point
-    p += sizeof(i32);
-    memcpy(&i32, p, sizeof(i32));
-    i32 = ntohl(i32);
-    ap.longitude = static_cast<double>(i32) / (1 << 23); // convert from 9.23 fixed point
-    p += sizeof(i32);
-    memcpy(&i32, p, sizeof(i32));
-    i32 = ntohl(i32);
-    ap.altitude = static_cast<double>(i32) / (1 << 8); // convert from 24.8 fixed point
-    p += sizeof(i32);
-    uint16_t u16;
-    memcpy(&u16, p, sizeof(u16));
-    u16 = ntohs(u16);
-    ap.heading = static_cast<float>(u16) / (1 << 7); // convert from 9.7 fixed point
-    p += sizeof(u16);
-    int16_t i16;
-    memcpy(&i16, p, sizeof(i16));
-    i16 = ntohs(i16);
-    ap.pitch = static_cast<float>(i16) / (1 << 7); // convert from 9.7 fixed point
-    p += sizeof(i16);
-    memcpy(&i16, p, sizeof(i16));
-    i16 = ntohs(i16);
-    ap.roll = static_cast<float>(i16) / (1 << 7); // convert from 9.7 fixed point
-    p += sizeof(i16);
-    const unsigned char* q = (const unsigned char*)p;
-    ap.gear = ((float)*q++) / 255;
-    ap.flap = ((float)*q++) / 255;
-    ap.spoiler = ((float)*q++) / 255;
-    ap.speedBrake = ((float)*q++) / 255;
-    ap.slat = ((float)*q++) / 255;
-    ap.sweep = ((float)*q++) / 255;
-    return (unsigned int)((const char*)q - buffer);
-}
-
 
 }
 

@@ -41,11 +41,11 @@ public:
     virtual bool GetPublicIPAddress(std::string & ipaddr) = 0;
 
     // start/stop a rendezvous server to host the session
-    virtual void StartSessionServer(const int p, const char * passcode) = 0;
+    virtual void StartSessionServer(const int p, const char * passcode, bool logging) = 0;
     virtual void StopSessionServer() = 0;
 
     // connect to a rendezvous server, and then start the P2P stuff
-    virtual bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode) = 0;
+    virtual bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode, bool logging) = 0;
     virtual void LeaveSession() = 0;
 
     // start or stop recording the curent flight

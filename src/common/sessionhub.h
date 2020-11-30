@@ -20,6 +20,7 @@
 
 #include "aircraftdb.h"
 #include "sockcomms.h"
+#include <fstream>
 #include <map>
 #include <vector>
 
@@ -31,7 +32,8 @@ class SessionHub : public ServerDatabase, public UdpSocketOwner
     // This class implements the FlyWithFriends session server.
 
 public:
-    SessionHub(const int port, const std::string & passcode);
+    SessionHub(const int port, const std::string& passcode);
+    SessionHub(const int port, const std::string& passcode, const char* logDirPath);
     virtual ~SessionHub();
 
     void Stop();
@@ -53,12 +55,14 @@ protected:
     std::shared_ptr<Datagram> PrepareBroadcast();
 
 private:
-    std::string                     const passcode;
-    UdpSocketLocal                  serviceSocket;
-    std::future<int>                loopResult;
-    std::mutex                      guard;
-    bool                            running;
-    unsigned int                    loopNumber;
+    std::string                         const passcode;
+    UdpSocketLocal                      serviceSocket;
+    std::future<int>                    loopResult;
+    std::mutex                          guard;
+    bool                                running;
+    unsigned int                        loopNumber;
+    std::mutex                          logGuard;
+    std::unique_ptr<std::ofstream>      datagramLog;
 };
 
 }

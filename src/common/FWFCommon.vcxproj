@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClCompile Include="addrfinder.cpp" />
     <ClCompile Include="aircraftdb.cpp" />
+    <ClCompile Include="datagrams.cpp" />
     <ClCompile Include="engine.cpp" />
     <ClCompile Include="logger.cpp" />
     <ClCompile Include="aircraft.cpp" />

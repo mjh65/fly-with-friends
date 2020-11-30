@@ -48,6 +48,7 @@ private:
     XPWidgetID                  callsignCaption, callsignEdit;
     XPWidgetID                  serverCaption, serverText, portEdit;
     XPWidgetID                  passcodeCaption, passcodeEdit;
+    XPWidgetID                  loggingCaption, loggingButton;
     XPWidgetID                  hostButton;
 };
 

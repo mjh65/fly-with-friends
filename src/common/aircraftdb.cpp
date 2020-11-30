@@ -22,8 +22,8 @@
 namespace fwf {
 
 static const bool infoLogging = true;
-static const bool verboseLogging = false;
-static const bool debugLogging = false;
+//static const bool verboseLogging = false;
+//static const bool debugLogging = false;
 
 template<class AIRCRAFT_TYPE>
 AircraftDatabase<AIRCRAFT_TYPE>::AircraftDatabase()

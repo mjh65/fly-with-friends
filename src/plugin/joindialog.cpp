@@ -85,11 +85,22 @@ void JoiningDialog::CreateDialogWidgets()
     XPSetWidgetProperty(passcodeEdit, xpProperty_TextFieldType, xpTextEntryField);
     XPSetWidgetProperty(passcodeEdit, xpProperty_Enabled, 1);
 
+    // Packet logging button
+    loggingCaption = XPCreateWidget(x + 10, y - 140, x + 60, y - 162,
+        1, "Logging", 0, dialog,
+        xpWidgetClass_Caption);
+    loggingButton = XPCreateWidget(x + 70, y - 140, x + 92, y - 162,
+        1, "", 0, dialog,
+        xpWidgetClass_Button);
+    XPSetWidgetProperty(loggingButton, xpProperty_ButtonType, xpRadioButton);
+    XPSetWidgetProperty(loggingButton, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox);
+
     // Join activation button
-    joinButton = XPCreateWidget(x + 100, y - 140, x + 200, y - 162,
+    joinButton = XPCreateWidget(x + 210, y - 140, x + 310, y - 162,
         1, " Join session", 0, dialog,
         xpWidgetClass_Button);
     XPSetWidgetProperty(joinButton, xpProperty_ButtonType, xpPushButton);
+
 }
 
 int JoiningDialog::HandleMessage(XPWidgetMessage msg, XPWidgetID id, intptr_t p1, intptr_t p2)
@@ -107,7 +118,8 @@ int JoiningDialog::HandleMessage(XPWidgetMessage msg, XPWidgetID id, intptr_t p1
         addr[63] = 0;
         XPGetWidgetDescriptor(portEdit, port, 32);
         port[31] = 0;
-        uiMgr->StartSession(addr, port, name, callsign, passcode);
+        bool logging = (XPGetWidgetProperty(loggingButton, xpProperty_ButtonState, 0) != 0);
+        uiMgr->StartSession(addr, port, name, callsign, passcode, logging);
         return 1;
     }
 

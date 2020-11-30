@@ -22,15 +22,99 @@
 
 namespace fwf {
 
-static const bool infoLogging = true;
-static const bool verboseLogging = false;
+//static const bool infoLogging = true;
+//static const bool verboseLogging = false;
 static const bool debugLogging = false;
+
+
+
+
+
+
+unsigned int AircraftPosition::EncodeTo(char* buffer)
+{
+    char* p = buffer;
+    uint32_t ts = htonl(msTimestamp);
+    memcpy(p, &ts, sizeof(ts));
+    p += sizeof(ts);
+    int32_t i32 = htonl(static_cast<int32_t>(latitude * (1 << 23))); // convert to 9.23 fixed point
+    memcpy(p, &i32, sizeof(i32));
+    p += sizeof(i32);
+    i32 = htonl(static_cast<int32_t>(longitude * (1 << 23))); // convert to 9.23 fixed point
+    memcpy(p, &i32, sizeof(i32));
+    p += sizeof(i32);
+    i32 = htonl(static_cast<int32_t>(altitude * (1 << 8))); // convert to 24.8 fixed point
+    memcpy(p, &i32, sizeof(i32));
+    p += sizeof(i32);
+    uint16_t u16 = htons(static_cast<uint16_t>(heading * (1 << 7))); // convert to 9.7 fixed point
+    memcpy(p, &u16, sizeof(u16));
+    p += sizeof(u16);
+    int16_t i16 = htons(static_cast<int16_t>(pitch * (1 << 7))); // convert to 9.7 fixed point
+    memcpy(p, &i16, sizeof(i16));
+    p += sizeof(i16);
+    i16 = htons(static_cast<int16_t>(roll * (1 << 7))); // convert to 9.7 fixed point
+    memcpy(p, &i16, sizeof(i16));
+    p += sizeof(i16);
+    *p++ = static_cast<uint8_t>(gear * 255);
+    *p++ = static_cast<uint8_t>(flap * 255);
+    *p++ = static_cast<uint8_t>(spoiler * 255);
+    *p++ = static_cast<uint8_t>(speedBrake * 255);
+    *p++ = static_cast<uint8_t>(slat * 255);
+    *p++ = static_cast<uint8_t>(sweep * 255);
+    return (unsigned int)(p - buffer);
+}
+
+unsigned int AircraftPosition::DecodeFrom(const char* buffer)
+{
+    const char* p = buffer;
+    uint32_t ts;
+    memcpy(&ts, p, sizeof(ts));
+    msTimestamp = ntohl(ts);
+    p += sizeof(ts);
+    int32_t i32;
+    memcpy(&i32, p, sizeof(i32));
+    i32 = ntohl(i32);
+    latitude = static_cast<double>(i32) / (1 << 23); // convert from 9.23 fixed point
+    p += sizeof(i32);
+    memcpy(&i32, p, sizeof(i32));
+    i32 = ntohl(i32);
+    longitude = static_cast<double>(i32) / (1 << 23); // convert from 9.23 fixed point
+    p += sizeof(i32);
+    memcpy(&i32, p, sizeof(i32));
+    i32 = ntohl(i32);
+    altitude = static_cast<double>(i32) / (1 << 8); // convert from 24.8 fixed point
+    p += sizeof(i32);
+    uint16_t u16;
+    memcpy(&u16, p, sizeof(u16));
+    u16 = ntohs(u16);
+    heading = static_cast<float>(u16) / (1 << 7); // convert from 9.7 fixed point
+    p += sizeof(u16);
+    int16_t i16;
+    memcpy(&i16, p, sizeof(i16));
+    i16 = ntohs(i16);
+    pitch = static_cast<float>(i16) / (1 << 7); // convert from 9.7 fixed point
+    p += sizeof(i16);
+    memcpy(&i16, p, sizeof(i16));
+    i16 = ntohs(i16);
+    roll = static_cast<float>(i16) / (1 << 7); // convert from 9.7 fixed point
+    p += sizeof(i16);
+    const unsigned char* q = (const unsigned char*)p;
+    gear = ((float)*q++) / 255;
+    flap = ((float)*q++) / 255;
+    spoiler = ((float)*q++) / 255;
+    speedBrake = ((float)*q++) / 255;
+    slat = ((float)*q++) / 255;
+    sweep = ((float)*q++) / 255;
+    return (unsigned int)((const char*)q - buffer);
+}
+
+
 
 inline unsigned int calcEpl()
 {
     char b[sizeof(AircraftPosition)];
     AircraftPosition ap;
-    return EncodeAircraftPosition(ap, b);
+    return ap.EncodeTo(b);
 }
 
 unsigned int Aircraft::lenEncodedPosition = calcEpl();

@@ -18,14 +18,17 @@
 
 #include "sessionhub.h"
 #include "fwfconsts.h"
+#include "fwfporting.h"
 #include "ilogger.h"
+#include <sstream>
+#include <iomanip>
 
 namespace fwf
 {
 
 static const bool infoLogging = true;
 static const bool verboseLogging = false;
-static const bool debugLogging = false;
+//static const bool debugLogging = false;
 
 SessionHub::SessionHub(const int port, const std::string& pc)
 :   ServerDatabase(),
@@ -35,6 +38,25 @@ SessionHub::SessionHub(const int port, const std::string& pc)
     running(true),
     loopNumber(0)
 {
+    loopResult = std::async(std::launch::async, &SessionHub::AsyncBroadcastGroupState, this);
+}
+
+SessionHub::SessionHub(const int port, const std::string& pc, const char* logDirPath)
+:   ServerDatabase(),
+    UdpSocketOwner(),
+    passcode(pc),
+    serviceSocket(this, std::string("SERV"), port), // might throw exception
+    running(true),
+    loopNumber(0)
+{
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    struct tm timeinfo;
+    LOCALTIME(&in_time_t, &timeinfo);
+    std::stringstream ss;
+    ss << logDirPath << std::put_time(&timeinfo, "ServerPkts-%Y-%m-%d-%H-%M.fwf");
+    datagramLog = std::make_unique<std::ofstream>(ss.str().c_str());
+
     loopResult = std::async(std::launch::async, &SessionHub::AsyncBroadcastGroupState, this);
 }
 
@@ -65,6 +87,14 @@ unsigned int SessionHub::RcvdPacketCount()
 
 void SessionHub::IncomingDatagram(AddressedDatagram dgin)
 {
+    // if enabled, log everything we receive
+    if (datagramLog)
+    {
+        std::string s = dgin.LogString();
+        std::lock_guard<std::mutex> lock(logGuard);
+        (*datagramLog) << "R:" << TIMENOWMS32() << ':' << s << std::endl;
+    }
+
     // extract seq-num, command, payload-length
     Datagram * d = dgin.Data();
     uint32_t sn = d->SequenceNumber();
@@ -102,7 +132,7 @@ void SessionHub::PositionReport(SocketAddress& sender, const char* payload, unsi
     pl -= sizeof(uint32_t);
 
     AircraftPosition ap;
-    unsigned int apl = DecodeAircraftPosition(ap, p);
+    unsigned int apl = ap.DecodeFrom(p);
     p += apl;
     pl -= apl;
     if (pl < 4)
@@ -186,6 +216,13 @@ int SessionHub::AsyncBroadcastGroupState()
         for (auto i = addrs.begin(); i != addrs.end(); ++i)
         {
             std::shared_ptr<AddressedDatagram> ad = std::make_shared<AddressedDatagram>(dg, *i);
+            // if enabled, log everything we send
+            if (datagramLog)
+            {
+                std::string s = ad->LogString();
+                std::lock_guard<std::mutex> lock(logGuard);
+                (*datagramLog) << "S:" << TIMENOWMS32() << ':' << s << std::endl;
+            }
             serviceSocket.QueueDatagram(ad, false);
         }
         serviceSocket.SendAll();
@@ -233,7 +270,7 @@ std::shared_ptr<Datagram> SessionHub::PrepareBroadcast()
             uint32_t uuid = htonl(forBroadcast[i]->Uuid());
             memcpy(p, &uuid, sizeof(uuid));
             p += sizeof(uuid);
-            p += EncodeAircraftPosition(forBroadcast[i]->Position(), p);
+            p += forBroadcast[i]->Position().EncodeTo(p);
         }
     }
     *q++ = positionsCount;
@@ -247,11 +284,11 @@ std::shared_ptr<Datagram> SessionHub::PrepareBroadcast()
 
         unsigned int pl = MAX_PAYLOAD_LEN - ((unsigned int)(p - dg->Payload()));
         std::string name = broadcastNameOf->Name();
-        strcpy_s(p, pl, name.c_str());
+        STRCPY(p, pl, name.c_str());
         p += name.size() + 1;
         pl -= (unsigned int)(name.size() + 1);
         std::string callsign = broadcastNameOf->Callsign();
-        strcpy_s(p, pl, callsign.c_str());
+        STRCPY(p, pl, callsign.c_str());
         p += callsign.size() + 1;
         pl -= (unsigned int)(callsign.size() + 1);
     }

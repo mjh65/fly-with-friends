@@ -18,6 +18,7 @@
 
 #include "simaccess.h"
 #include "ilogger.h"
+#include "aircraft.h"
 #include "XPLMGraphics.h"
 #include "XPLMPlanes.h"
 #include <cassert>
@@ -26,7 +27,7 @@
 namespace fwf {
 
 static const bool infoLogging = true;
-static const bool verboseLogging = false;
+//static const bool verboseLogging = false;
 static const bool debugLogging = false;
 
 std::shared_ptr<ISimData> ISimData::New()

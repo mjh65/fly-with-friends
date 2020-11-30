@@ -18,11 +18,12 @@
 
 #include "fwfsocket.h"
 #include "ilogger.h"
+#include "fwfporting.h"
 
 namespace fwf {
 
-static const bool infoLogging = true;
-static const bool verboseLogging = false;
+//static const bool infoLogging = true;
+//static const bool verboseLogging = false;
 static const bool debugLogging = false;
 
 IPv4Address::IPv4Address()
@@ -60,7 +61,7 @@ std::string IPv4Address::GetQuad() const
 {
     if (!address) return std::string("-.-.-.-");
     char astr[16];
-    sprintf_s(astr, "%d.%d.%d.%d", Get(0), Get(1), Get(2), Get(3));
+    SPRINTF(astr, "%d.%d.%d.%d", Get(0), Get(1), Get(2), Get(3));
     return std::string(astr);
 }
 
@@ -68,7 +69,7 @@ void IPv4Address::Set(const char * addrStr)
 {
     LOG_DEBUG(debugLogging,"addrStr=%s",addrStr);
     int a0,a1,a2,a3;
-    if (sscanf_s(addrStr, "%d.%d.%d.%d", &a0, &a1, &a2, &a3) == 4)
+    if (SSCANF(addrStr, "%d.%d.%d.%d", &a0, &a1, &a2, &a3) == 4)
     {
         Set(a0, a1, a2, a3);
     }
@@ -121,7 +122,7 @@ bool SocketAddress::Equal(const SocketAddress & x) const
 std::string SocketAddress::GetAsString() const
 {
     char ps[8];
-    sprintf_s(ps, "%u", port);
+    SPRINTF(ps, "%u", port);
     std::string s = GetQuad() + ":" + std::string(ps);
     return s;
 }

@@ -34,7 +34,8 @@ class ClientLink : public TrackedAircraftDatabase, public UdpSocketOwner
     // allocated by the OS.
 
 public:
-    ClientLink(IPv4Address & addr, int port, const char * name, const char * callsign, const char * passcode);
+    ClientLink(IPv4Address& addr, int port, const char* name, const char* callsign, const char* passcode);
+    ClientLink(IPv4Address& addr, int port, const char* name, const char* callsign, const char* passcode, const char *logDirPath);
     virtual ~ClientLink();
 
     // action functions called from the UI/sim/engine
@@ -64,18 +65,20 @@ private:
         JOINING, JOINED, LEAVING, GONE
     };
 
-    IPv4Address                     const sessionServerAddress;
-    int                             const sessionServerPort;
-    std::string                     const name;
-    std::string                     const callsign;
-    std::string                     const passcode;
-    uint32_t                        sessionUUID;
-    UdpSocketLocal                  serverConnection;
-    std::future<bool>               leaveCompleted;
-    std::future<bool>               flightLoopDone;
-    std::mutex                      guard;
-    uint32_t                        frameNumber;
-    State                           sessionState;
+    IPv4Address                         const sessionServerAddress;
+    int                                 const sessionServerPort;
+    std::string                         const name;
+    std::string                         const callsign;
+    std::string                         const passcode;
+    uint32_t                            sessionUUID;
+    UdpSocketLocal                      serverConnection;
+    std::future<bool>                   leaveCompleted;
+    std::future<bool>                   flightLoopDone;
+    std::mutex                          guard;
+    uint32_t                            frameNumber;
+    State                               sessionState;
+    std::mutex                          logGuard;
+    std::unique_ptr<std::ofstream>      datagramLog;
 };
 
 }

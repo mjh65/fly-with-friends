@@ -53,7 +53,7 @@ public:
     // called from dialog UI handlers 
     bool IsVRenabled();
     bool IsRecording();
-    void StartSession(const char *addr, const char *port, const char *name, const char *callsign, const char *passcode);
+    void StartSession(const char *addr, const char *port, const char *name, const char *callsign, const char *passcode, bool logging);
     void StopSession();
     void StartRecording();
     void StopRecording();
@@ -73,7 +73,6 @@ private:
     std::shared_ptr<IEngine>        engine;
     bool                            planesAreOwned;
     XPLMPluginID                    joinFS;
-    Dialog*                         currentDialog;
     std::unique_ptr<HostingDialog>  hostingDialog;
     std::unique_ptr<JoiningDialog>  joiningDialog;
     std::unique_ptr<StatusDialog>   statusDialog;

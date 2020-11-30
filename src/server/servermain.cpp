@@ -21,6 +21,7 @@
 #endif
 #include "ilogger.h"
 #include "sessionhub.h"
+#include "fwfporting.h"
 #include <iostream>
 #include <filesystem>
 #include <memory>
@@ -46,7 +47,7 @@ int main(int argc, const char **argv)
         return 1;
     }
     int port;
-    if (sscanf_s(*(argv+1), "%d", &port) != 1)
+    if (SSCANF(*(argv+1), "%d", &port) != 1)
     {
         std::cerr << "Bad port number: " << *(argv+1) << std::endl;
         usage(*argv);
@@ -75,7 +76,9 @@ int main(int argc, const char **argv)
     catch (...)
     {
         std::cerr << "Server startup failed" << std::endl;
+#ifdef TARGET_WINDOWS
         WSACleanup();
+#endif
         std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         return 2;
     }
@@ -123,7 +126,9 @@ int main(int argc, const char **argv)
         std::cerr << "Exception thrown during server operation" << std::endl;
         err = 3;
     }
+#ifdef TARGET_WINDOWS
     WSACleanup();
+#endif
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     return err;
 }
