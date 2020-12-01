@@ -31,23 +31,27 @@ static const bool verboseLogging = false;
 //static const bool debugLogging = false;
 
 SessionHub::SessionHub(const int port, const std::string& pc)
-:   ServerDatabase(),
-    UdpSocketOwner(),
+:   UdpSocketOwner(),
+    SequenceNumberDatabase(),
+    ServerDatabase(),
     passcode(pc),
     serviceSocket(this, std::string("SERV"), port), // might throw exception
     running(true),
-    loopNumber(0)
+    loopNumber(0),
+    startTimeMs(TIMENOWMS())
 {
     loopResult = std::async(std::launch::async, &SessionHub::AsyncBroadcastGroupState, this);
 }
 
 SessionHub::SessionHub(const int port, const std::string& pc, const char* logDirPath)
-:   ServerDatabase(),
-    UdpSocketOwner(),
+:   UdpSocketOwner(),
+    SequenceNumberDatabase(),
+    ServerDatabase(),
     passcode(pc),
     serviceSocket(this, std::string("SERV"), port), // might throw exception
     running(true),
-    loopNumber(0)
+    loopNumber(0),
+    startTimeMs(TIMENOWMS())
 {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -92,7 +96,7 @@ void SessionHub::IncomingDatagram(AddressedDatagram dgin)
     {
         std::string s = dgin.LogString();
         std::lock_guard<std::mutex> lock(logGuard);
-        (*datagramLog) << "R:" << TIMENOWMS32() << ':' << s << std::endl;
+        (*datagramLog) << "R:" << LocalTime() << ':' << s << std::endl;
     }
 
     // extract seq-num, command, payload-length
@@ -102,6 +106,11 @@ void SessionHub::IncomingDatagram(AddressedDatagram dgin)
     uint16_t pl = d->PayloadLength();
     char * p = d->Payload();
     LOG_VERBOSE(verboseLogging,"received datagram - sn=%08x, cmd=%d, plen=%d", sn, cmd, pl);
+    if (OutOfOrder(dgin.Address(), sn))
+    {
+        LOG_WARN("dropping out-of-order datagram", sn, cmd, pl);
+        return;
+    }
     if (!d->ValidPayload())
     {
         LOG_WARN("invalid payload", sn, cmd, pl);
@@ -207,7 +216,7 @@ int SessionHub::AsyncBroadcastGroupState()
         }
         nextWakeTime += std::chrono::milliseconds(SERVER_BROADCAST_PERIOD_MS);
 
-        CheckLapsedMembership();
+        CheckLapsedMembership(MEMBERSHIP_TIMEOUT_MS / SERVER_BROADCAST_PERIOD_MS);
         RemoveExpiredMembership();
 
         std::shared_ptr<Datagram> dg = PrepareBroadcast();
@@ -221,7 +230,7 @@ int SessionHub::AsyncBroadcastGroupState()
             {
                 std::string s = ad->LogString();
                 std::lock_guard<std::mutex> lock(logGuard);
-                (*datagramLog) << "S:" << TIMENOWMS32() << ':' << s << std::endl;
+                (*datagramLog) << "S:" << LocalTime() << ':' << s << std::endl;
             }
             serviceSocket.QueueDatagram(ad, false);
         }
@@ -238,9 +247,13 @@ std::shared_ptr<Datagram> SessionHub::PrepareBroadcast()
     dg->SetCommand(Datagram::WORLDSTATE);
     dg->SetSequenceNumber(loopNumber);
 
-    // first 16 bits are an encoding of how many records of each type follow.
-    // we'll put this in after we've figured it out!
+    // first 32 bits are the time since the server started, in ms
+    uint32_t t = htonl(LocalTime());
+    memcpy(p, &t, sizeof(t));
+    p += sizeof(t);
 
+    // next 16 bits are an encoding of how many records of each type follow.
+    // we'll put this in after we've figured it out!
     char* q = p;
     p += (2 * sizeof(uint8_t));
 
@@ -259,7 +272,7 @@ std::shared_ptr<Datagram> SessionHub::PrepareBroadcast()
     }
     *q++ = expiredCount;
 
-    // next any positions not previously broadcast
+    // next any positions not yet broadcast
     uint8_t positionsCount = 0;
     {
         std::vector<std::shared_ptr<SessionMember> > forBroadcast;
@@ -295,6 +308,11 @@ std::shared_ptr<Datagram> SessionHub::PrepareBroadcast()
 
     dg->SetPayloadLength((unsigned long)(p - dg->Payload()));
     return dg;
+}
+
+uint32_t SessionHub::LocalTime() const
+{
+    return ((TIMENOWMS() - startTimeMs) & 0xffffffff);
 }
 
 }

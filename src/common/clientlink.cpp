@@ -30,8 +30,9 @@ static const bool infoLogging = false;
 static const bool verboseLogging = false;
 
 ClientLink::ClientLink(IPv4Address & a, int pn, const char * n, const char * cs, const char * pc)
-:   TrackedAircraftDatabase(),
-    UdpSocketOwner(),
+:   UdpSocketOwner(),
+    SequenceNumberDatabase(),
+    TrackedAircraftDatabase(),
     sessionServerAddress(a),
     sessionServerPort(pn),
     name(n),
@@ -40,6 +41,7 @@ ClientLink::ClientLink(IPv4Address & a, int pn, const char * n, const char * cs,
     sessionUUID(0),
     serverConnection(this,std::string("SMGR")),
     frameNumber(1),
+    startTimeMs(TIMENOWMS()),
     sessionState(JOINING)
 {
     std::string t1 = std::string(n) + callsign + passcode;
@@ -51,8 +53,9 @@ ClientLink::ClientLink(IPv4Address & a, int pn, const char * n, const char * cs,
 }
 
 ClientLink::ClientLink(IPv4Address& a, int pn, const char* n, const char* cs, const char* pc, const char* logDirPath)
-:   TrackedAircraftDatabase(),
-    UdpSocketOwner(),
+:   UdpSocketOwner(),
+    SequenceNumberDatabase(),
+    TrackedAircraftDatabase(),
     sessionServerAddress(a),
     sessionServerPort(pn),
     name(n),
@@ -61,6 +64,7 @@ ClientLink::ClientLink(IPv4Address& a, int pn, const char* n, const char* cs, co
     sessionUUID(0),
     serverConnection(this, std::string("SMGR")),
     frameNumber(1),
+    startTimeMs(TIMENOWMS()),
     sessionState(JOINING)
 {
     std::string t1 = std::string(n) + callsign + passcode;
@@ -101,6 +105,7 @@ void ClientLink::LeaveSession()
 
 void ClientLink::SendOurAircraftData(AircraftPosition& us)
 {
+    us.msTimestamp = LocalTime();
     if (!flightLoopDone.valid() || (flightLoopDone.wait_for(std::chrono::seconds(0)) == std::future_status::ready))
     {
         flightLoopDone = std::async(std::launch::async, &ClientLink::AsyncFlightLoop, this, us);
@@ -151,6 +156,12 @@ bool ClientLink::GetFlierIdentifiers(unsigned int id, std::string & n, std::stri
     return false;
 }
 
+unsigned int ClientLink::GetCurrentAircraftPositions(AircraftPosition* aps)
+{
+    uint32_t ts = LocalTime();
+    return GetActiveMemberPositions(aps, ts);
+}
+
 bool ClientLink::AsyncDisconnectFromSession()
 {
     // first wait until main thread has changed state to leaving
@@ -181,7 +192,7 @@ bool ClientLink::AsyncDisconnectFromSession()
         {
             std::string s = leave->LogString();
             std::lock_guard<std::mutex> lock(logGuard);
-            (*datagramLog) << "S:" << TIMENOWMS32() << ':' << s << std::endl;
+            (*datagramLog) << "S:" << LocalTime() << ':' << s << std::endl;
         }
         serverConnection.QueueDatagram(leave);
         std::this_thread::sleep_for(std::chrono::milliseconds(3));
@@ -201,7 +212,7 @@ void ClientLink::IncomingDatagram(AddressedDatagram dgin)
     {
         std::string s = dgin.LogString();
         std::lock_guard<std::mutex> lock(logGuard);
-        (*datagramLog) << "R:" << TIMENOWMS32() << ':' << s << std::endl;
+        (*datagramLog) << "R:" << LocalTime() << ':' << s << std::endl;
     }
 
     // extract seq-num, command, payload-length
@@ -210,6 +221,11 @@ void ClientLink::IncomingDatagram(AddressedDatagram dgin)
     Datagram::CommandCode cmd = d->Command();
     uint16_t pl = d->PayloadLength();
     LOG_INFO(infoLogging,"received datagram - %08x, %d, %d", sn, cmd, pl);
+    if (OutOfOrder(dgin.Address(), sn))
+    {
+        LOG_WARN("dropping out-of-order datagram", sn, cmd, pl);
+        return;
+    }
 
     if ((cmd == Datagram::WORLDSTATE) && d->ValidPayload())
     {
@@ -228,9 +244,16 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
         return;
     }
 
-    uint32_t rcvTimestamp = TIMENOWMS32();
+    uint32_t rcvTimestamp = LocalTime();
 
-    // first 2 bytes are record counts for departed members and position updates
+    // first 32 bits are the time since the server started, in ms
+    uint32_t tsession;
+    memcpy(&tsession, p, sizeof(uint32_t));
+    tsession = ntohl(tsession);
+    p += sizeof(tsession);
+    pl -= sizeof(tsession);
+
+    // next 2 bytes are record counts for departed members and position updates
     uint8_t numDeparted = *p++;
     uint8_t numPositions = *p++;
     pl -= 2;
@@ -313,6 +336,11 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
     }
 }
 
+uint32_t ClientLink::LocalTime() const
+{
+    return ((TIMENOWMS() - startTimeMs) & 0xffffffff);
+}
+
 bool ClientLink::AsyncFlightLoop(AircraftPosition ap)
 {
     LOG_VERBOSE(verboseLogging,"async flight loop started");
@@ -353,11 +381,11 @@ bool ClientLink::AsyncFlightLoop(AircraftPosition ap)
     {
         std::string s = report->LogString();
         std::lock_guard<std::mutex> lock(logGuard);
-        (*datagramLog) << "S:" << TIMENOWMS32() << ':' << s << std::endl;
+        (*datagramLog) << "S:" << LocalTime() << ':' << s << std::endl;
     }
     serverConnection.QueueDatagram(report);
 
-    CheckLapsedMembership();
+    CheckLapsedMembership(MEMBERSHIP_TIMEOUT_MS / CLIENT_UPDATE_PERIOD_MS);
     RemoveExpiredMembership();
 
     LOG_VERBOSE(verboseLogging,"async flight loop completed");

@@ -78,6 +78,8 @@ FlightReplay::FlightReplay(const char* p, unsigned int l)
     periodMs = static_cast<unsigned int>((float)1000 / rate + 0.5);
 
     nextSampleOffset = samplesStartOffset = (unsigned int)(b - buffer.get());
+
+    srand((unsigned int)time(0));
 }
 
 FlightReplay::~FlightReplay()
@@ -113,11 +115,11 @@ const char* FlightReplay::Callsign() const
 
 bool FlightReplay::AsyncReplayFlight()
 {
+    // TODO - add mode to emulate out of order packets
     auto nextWakeTime = std::chrono::steady_clock::now() + std::chrono::milliseconds(periodMs);
     while (running && Next())
     {
         std::this_thread::sleep_until(nextWakeTime);
-        position.msTimestamp = TIMENOWMS32();
         LOG_VERBOSE(verboseLogging, "send position, ts=%u, lat=%3.5f, lon=%3.5f", position.msTimestamp, position.latitude, position.longitude);
         clientLink->SendOurAircraftData(position);
         nextWakeTime += std::chrono::milliseconds(periodMs);

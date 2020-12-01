@@ -29,6 +29,15 @@
 
 namespace fwf {
 
+class SequenceNumberDatabase
+{
+public:
+    bool OutOfOrder(SocketAddress& src, uint32_t sn);
+protected:
+private:
+    std::map<SocketAddress, uint32_t>   last;
+};
+
 template <class AIRCRAFT_TYPE>
 class AircraftDatabase
 {
@@ -47,7 +56,7 @@ protected:
     uint8_t AddMember(uint32_t uuid, std::shared_ptr<AIRCRAFT_TYPE> &m);
     void RemoveMember(uint32_t uuid);
 
-    void CheckLapsedMembership();
+    void CheckLapsedMembership(unsigned int ticks);
     void RemoveExpiredMembership();
 
     void ExpireMember(unsigned int i);

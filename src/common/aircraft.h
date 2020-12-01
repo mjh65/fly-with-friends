@@ -24,8 +24,6 @@
 #include <mutex>
 #include <list>
 
-//#define ORIG_SMOOTHING_ALGORITHM
-
 namespace fwf {
 
 // Aircraft position, oriententation (and other state?)
@@ -115,18 +113,13 @@ public:
 protected:
 private:
     unsigned int                countReports;
-    unsigned int                msLatency;
+    int                         tsOffset;
     AircraftPosition            reportedPrev;
     AircraftPosition            reportedLast;
-#ifdef ORIG_SMOOTHING_ALGORITHM
-    AircraftPosition            predicted;
-    AircraftPosition            deltaRates;
-#else
     std::mutex                  targetGuard;
     AircraftPosition            current;
     AircraftPosition            target;
-    static const unsigned int   targetDeltaMs = 1200;
-#endif
+    AircraftPosition            deltas;
 };
 
 

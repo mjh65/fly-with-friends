@@ -211,8 +211,6 @@ float Engine::DoFlightLoop()
         return 10.0;
     }
 
-    uint32_t msnow = TIMENOWMS32();
-
     // is it time to update the server with our latest position etc?
     if (std::chrono::steady_clock::now() >= nextNetworkUpdateTime)
     {
@@ -220,7 +218,6 @@ float Engine::DoFlightLoop()
 
         AircraftPosition position;
         simulation->GetUserAircraftPosition(position);
-        position.msTimestamp = msnow;
         clientLink->SendOurAircraftData(position);
         if (recording)
         {
@@ -239,7 +236,7 @@ float Engine::DoFlightLoop()
     if (activeOthers > 0)
     {
         AircraftPosition others[MAX_IN_SESSION];
-        unsigned int active = clientLink->GetActiveMemberPositions(others, msnow);
+        unsigned int active = clientLink->GetCurrentAircraftPositions(others);
         for (unsigned int i = 0; i < MAX_IN_SESSION; ++i)
         {
             if (active & (1 << i))

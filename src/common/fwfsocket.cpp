@@ -119,6 +119,14 @@ bool SocketAddress::Equal(const SocketAddress & x) const
     return (IsValid() && x.IsValid() && (GetAsUInt32() == x.GetAsUInt32()) && (port == x.port));
 }
 
+bool SocketAddress::operator<(const SocketAddress& x) const
+{
+    if (address < x.address) return true;
+    if (address > x.address) return false;
+    if (port < x.port) return true;
+    return false;
+}
+
 std::string SocketAddress::GetAsString() const
 {
     char ps[8];

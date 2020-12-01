@@ -24,8 +24,10 @@ static const unsigned int   MAX_IN_SESSION              = 16;   // could be tune
 static const unsigned int   MAX_DATAGRAM_LEN            = 524;
 static const unsigned int   MAX_PAYLOAD_LEN             = 512;
 static const unsigned int   CLIENT_UPDATE_PERIOD_MS     = 100;
-static const unsigned int   SERVER_BROADCAST_PERIOD_MS  = 320;
+static const unsigned int   SERVER_BROADCAST_PERIOD_MS  = 210;
 static const unsigned int   ID_REBROADCAST_PERIOD_MS    = 7500;
+static const unsigned int   MEMBERSHIP_TIMEOUT_MS       = 10000;
+static const unsigned int   PREDICTION_INTERCEPT_MS     = 2000;
 
 }
 

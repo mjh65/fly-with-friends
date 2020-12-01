@@ -27,7 +27,7 @@ namespace fwf {
 
 class Engine;
 
-class ClientLink : public TrackedAircraftDatabase, public UdpSocketOwner
+class ClientLink : public UdpSocketOwner, public SequenceNumberDatabase, public TrackedAircraftDatabase
 {
     // This class owns the UDP socket that's used for the exchange of data
     // with the session server. There is only one instance. The socket ID is
@@ -53,11 +53,16 @@ public:
     bool Connected(unsigned int & numPeers);
     unsigned long GetRcvdPacketCount();
     bool GetFlierIdentifiers(unsigned int id, std::string & name, std::string & callsign);
+    unsigned int GetCurrentAircraftPositions(AircraftPosition* aps);
 
 protected:
     bool AsyncDisconnectFromSession();
     bool AsyncFlightLoop(AircraftPosition ap);
     void IncomingWorldState(const char * payload, unsigned int length);
+
+private:
+    uint32_t LocalTime() const;
+    uint32_t LocalTime(uint64_t ref) const;
 
 private:
     enum State
@@ -76,6 +81,7 @@ private:
     std::future<bool>                   flightLoopDone;
     std::mutex                          guard;
     uint32_t                            frameNumber;
+    uint64_t                            startTimeMs;
     State                               sessionState;
     std::mutex                          logGuard;
     std::unique_ptr<std::ofstream>      datagramLog;

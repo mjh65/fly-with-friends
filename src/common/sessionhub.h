@@ -27,7 +27,7 @@
 namespace fwf
 {
 
-class SessionHub : public ServerDatabase, public UdpSocketOwner
+class SessionHub : public UdpSocketOwner, public SequenceNumberDatabase, public ServerDatabase
 {
     // This class implements the FlyWithFriends session server.
 
@@ -55,12 +55,16 @@ protected:
     std::shared_ptr<Datagram> PrepareBroadcast();
 
 private:
+    uint32_t LocalTime() const;
+
+private:
     std::string                         const passcode;
     UdpSocketLocal                      serviceSocket;
     std::future<int>                    loopResult;
     std::mutex                          guard;
     bool                                running;
     unsigned int                        loopNumber;
+    uint64_t                            startTimeMs;
     std::mutex                          logGuard;
     std::unique_ptr<std::ofstream>      datagramLog;
 };

@@ -37,7 +37,8 @@ public:
     std::string GetQuad() const;
     void Set(const char * astr);
     void Set(int a0, int a1, int a2, int a3);
-private:
+
+protected:
     uint32_t address;
 };
 
@@ -50,6 +51,7 @@ public:
     SocketAddress(uint32_t hostaddr, int p);
     void Reset();
     bool Equal(const SocketAddress & x) const;
+    bool operator<(const SocketAddress& x) const;
     int GetPort() const { return port; }
     std::string GetAsString() const;
 

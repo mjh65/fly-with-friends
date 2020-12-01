@@ -31,7 +31,7 @@
 
 namespace fwf {
 
-inline uint32_t TIMENOWMS32() { return static_cast<uint32_t>((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) & 0xffffffff); }
+inline uint64_t TIMENOWMS() { return (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()); }
 
 // Wrapper for UDP datagrams.
 

@@ -25,6 +25,23 @@ static const bool infoLogging = true;
 //static const bool verboseLogging = false;
 //static const bool debugLogging = false;
 
+
+bool SequenceNumberDatabase::OutOfOrder(SocketAddress& src, uint32_t sn)
+{
+    auto i = last.find(src);
+    if (i == last.end())
+    {
+        last[src] = sn;
+        return false;
+    }
+    else if (sn > i->second)
+    {
+        i->second = sn;
+        return false;
+    }
+    return false;
+}
+
 template<class AIRCRAFT_TYPE>
 AircraftDatabase<AIRCRAFT_TYPE>::AircraftDatabase()
 :   activeMembers(0)
@@ -100,12 +117,12 @@ void AircraftDatabase<AIRCRAFT_TYPE>::RemoveMember(uint32_t uuid)
 }
 
 template<class AIRCRAFT_TYPE>
-void AircraftDatabase<AIRCRAFT_TYPE>::CheckLapsedMembership()
+void AircraftDatabase<AIRCRAFT_TYPE>::CheckLapsedMembership(unsigned int ticks)
 {
     std::lock_guard<std::mutex> lock(guard);
     for (auto i = membersByUuid.begin(); i != membersByUuid.end(); ++i)
     {
-        if (i->second->CheckCounter(50)) // 50 ~= 5s
+        if (i->second->CheckCounter(ticks))
         {
             // haven't heard from this member in a while
             ExpireMember(i->second->SessionId());
