@@ -34,13 +34,12 @@ class ClientLink : public UdpSocketOwner, public SequenceNumberDatabase, public 
     // allocated by the OS.
 
 public:
-    ClientLink(IPv4Address& addr, int port, const char* name, const char* callsign, const char* passcode);
-    ClientLink(IPv4Address& addr, int port, const char* name, const char* callsign, const char* passcode, const char *logDirPath);
+    ClientLink(IPv4Address& addr, int port, const char* name, const char* callsign, const char* passcode, const char *logDirPath = 0);
     virtual ~ClientLink();
 
     // action functions called from the UI/sim/engine
     void LeaveSession();
-    void SendOurAircraftData(AircraftPosition& us);
+    void SetCurrentPosition(AircraftPosition& ap);
 
     // Implementation of UdpSocketOwner
     void IncomingDatagram(AddressedDatagram dgin) override;
@@ -49,20 +48,18 @@ public:
     bool Joining() { std::lock_guard<std::mutex> lock(guard); return sessionState == JOINING; }
     bool Leaving() { std::lock_guard<std::mutex> lock(guard); return sessionState == LEAVING; }
     bool Inactive() { std::lock_guard<std::mutex> lock(guard); return sessionState == GONE; }
-    bool Connected(std::string & addr, int & port, unsigned int & numPeers);
-    bool Connected(unsigned int & numPeers);
+    bool Connected(std::string& desc);
+    bool OtherFlier(unsigned int id, std::string& nameCS, float& distance, unsigned int& bearing);
     unsigned long GetRcvdPacketCount();
-    bool GetFlierIdentifiers(unsigned int id, std::string & name, std::string & callsign);
     unsigned int GetCurrentAircraftPositions(AircraftPosition* aps);
 
 protected:
     bool AsyncDisconnectFromSession();
-    bool AsyncFlightLoop(AircraftPosition ap);
+    bool AsyncFlightLoop();
     void IncomingWorldState(const char * payload, unsigned int length);
 
 private:
     uint32_t LocalTime() const;
-    uint32_t LocalTime(uint64_t ref) const;
 
 private:
     enum State
@@ -82,7 +79,11 @@ private:
     std::mutex                          guard;
     uint32_t                            frameNumber;
     uint64_t                            startTimeMs;
+    uint64_t                            lastRcvTime;
     State                               sessionState;
+    AircraftPosition                    ourLocation;
+    std::mutex                          flightLoopCVGuard;
+    std::condition_variable             flightLoopBlock;
     std::mutex                          logGuard;
     std::unique_ptr<std::ofstream>      datagramLog;
 };

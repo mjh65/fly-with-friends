@@ -34,7 +34,7 @@
 static void usage(const char * prog);
 
 static const unsigned int SERVER_STARTUP_TIMEOUT = 120;
-static const unsigned int SERVER_TIMEOUT = 10;
+static const unsigned int SERVER_TIMEOUT = 30;
 static unsigned int serverTimeout = SERVER_STARTUP_TIMEOUT;
 
 int main(int argc, const char **argv)
@@ -55,7 +55,8 @@ int main(int argc, const char **argv)
     }
     std::string passcode(*(argv+2));
 
-    std::string logFile = std::filesystem::current_path().string() + "/fwf_server.log";
+    std::string logPath = std::filesystem::current_path().string() + "/";
+    std::string logFile = logPath + "fwf_server.log";
     std::shared_ptr<fwf::ILogger> logger = std::shared_ptr<fwf::ILogger>(fwf::ILogger::New(logFile.c_str()));
     std::cout << "Starting server on port " << port << " with passcode " << passcode.c_str() << std::endl;
 
@@ -68,10 +69,15 @@ int main(int argc, const char **argv)
     }
 #endif
 
+    const char* pktLogPath = 0;
+#ifndef NDEBUG
+    pktLogPath = logPath.c_str();
+#endif
+
     std::unique_ptr<fwf::SessionHub> hub;
     try
     {
-        hub = std::make_unique<fwf::SessionHub>(port, passcode);
+        hub = std::make_unique<fwf::SessionHub>(port, passcode, pktLogPath);
     }
     catch (...)
     {
@@ -86,6 +92,7 @@ int main(int argc, const char **argv)
     int err = 0;
     serverTimeout = SERVER_STARTUP_TIMEOUT;
     unsigned int prevPacketCount = 0;
+    unsigned int prevAircraftCount = 0;
     try
     {
         // now loop until server is stopped or has been idle for 30s
@@ -95,14 +102,16 @@ int main(int argc, const char **argv)
             unsigned int pktCount = hub->RcvdPacketCount();
             if (pktCount > prevPacketCount)
             {
-                std::cout << "Received " << pktCount << " packets" << std::endl;
                 prevPacketCount = pktCount;
                 serverTimeout = SERVER_TIMEOUT;
             }
-            if (!hub->ActiveAircraftCount())
+            unsigned int aircraftCount = hub->ActiveAircraftCount();
+            if (prevAircraftCount != aircraftCount)
             {
-                --serverTimeout;
+                std::cout << aircraftCount << " aircraft are now in session" << std::endl;
+                prevAircraftCount = aircraftCount;
             }
+            if (!aircraftCount) --serverTimeout;
         }
         if (!hub->IsRunning())
         {

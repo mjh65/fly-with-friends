@@ -34,8 +34,9 @@ struct AircraftPosition
     double          latitude, longitude, altitude;
     double          heading, pitch, roll;
     double          gear, flap, spoiler, speedBrake, slat, sweep;
-    static const unsigned int ENCODED_SIZE = sizeof(uint32_t) + (3 * sizeof(int32_t)) + (3 * sizeof(int16_t)) + (6 * sizeof(uint8_t));
 
+    void Reset();
+    double DistanceTo(double lat, double lon);      // lateral in km
     unsigned int EncodeTo(char* buffer);
     unsigned int DecodeFrom(const char* buffer);
 };
@@ -107,8 +108,10 @@ class TrackedAircraft : public Aircraft
 public:
     TrackedAircraft(uint32_t uuid);
 
+    float Distance();
+    unsigned int Bearing();
     AircraftPosition GetPrediction(uint32_t ts);
-    void UpdateTracking(AircraftPosition& ap, uint32_t ts);
+    void UpdateTracking(AircraftPosition& ap, uint32_t ts, double lat, double lon);
 
 protected:
 private:
@@ -116,6 +119,7 @@ private:
     int                         tsOffset;
     AircraftPosition            reportedPrev;
     AircraftPosition            reportedLast;
+    float                       distance;
     std::mutex                  targetGuard;
     AircraftPosition            current;
     AircraftPosition            target;

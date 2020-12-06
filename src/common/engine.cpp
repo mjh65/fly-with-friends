@@ -139,6 +139,12 @@ void Engine::LeaveSession()
     if (clientLink) clientLink->LeaveSession();
 }
 
+bool Engine::IsSessionActive()
+{
+    if (!clientLink) return false;
+    return !(clientLink->Inactive());
+}
+
 void Engine::StartRecording()
 {
     if (recording || !clientLink) return;
@@ -162,54 +168,12 @@ void Engine::StopRecording()
     recording.reset();
 }
 
-std::string Engine::StatusSummary()
-{
-    char status[120];
-
-    std::string addr;
-    int port;
-    unsigned int peerCount;
-    bool connected = clientLink->Connected(addr, port, peerCount);
-
-    if (connected)
-    {
-        SPRINTF(status, "Session active [%s:%d] %u other flier%s", addr.c_str(), port, peerCount, ((peerCount == 1) ? "" : "s"));
-    }
-    else
-    {
-        SPRINTF(status, "Connecting ...");
-    }
-    return std::string(status);
-}
-
-std::string Engine::StatusDetail(unsigned int i)
-{
-    std::string detail("< n/c >");
-    unsigned int peerCount;
-    bool connected = clientLink->Connected(peerCount);
-
-    if (connected)
-    {
-        std::string name, callsign;
-        if (clientLink->GetFlierIdentifiers(i, name, callsign))
-        {
-            detail = name + " / " + callsign; 
-        }
-    }
-    return detail;
-}
-
 float Engine::DoFlightLoop()
 {
     ++frameNumber;
 
     // if no current session then next call in 10s
     if (!clientLink) return 10.0;
-    if (clientLink->Inactive())
-    {
-        clientLink.reset();
-        return 10.0;
-    }
 
     // is it time to update the server with our latest position etc?
     if (std::chrono::steady_clock::now() >= nextNetworkUpdateTime)
@@ -218,7 +182,7 @@ float Engine::DoFlightLoop()
 
         AircraftPosition position;
         simulation->GetUserAircraftPosition(position);
-        clientLink->SendOurAircraftData(position);
+        clientLink->SetCurrentPosition(position);
         if (recording)
         {
             std::stringstream ss;
@@ -251,6 +215,22 @@ float Engine::DoFlightLoop()
     const float NEXT_FRAME = -1.0;
     const float IDLE_PERIOD = 1000.0f / SERVER_BROADCAST_PERIOD_MS;
     return ((clientLink->ActiveAircraftCount() > 0) || (recording)) ? NEXT_FRAME : IDLE_PERIOD;
+}
+
+bool Engine::IsConnected(std::string& desc)
+{
+    bool connected = clientLink->Connected(desc);
+    return connected;
+}
+
+unsigned int Engine::CountOtherFliers()
+{
+    return clientLink->ActiveAircraftCount();
+}
+
+bool Engine::OtherFlier(unsigned int id, std::string& nameCS, float& distance, unsigned int& bearing)
+{
+    return clientLink->OtherFlier(id, nameCS, distance, bearing);
 }
 
 }

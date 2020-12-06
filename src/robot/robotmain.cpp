@@ -64,6 +64,8 @@ int main(int argc, const char** argv)
         return 1;
     }
 
+    std::cout << "Creating flight replay director" << std::endl;
+
     std::unique_ptr<fwf::FlightReplay> rf;
     try
     {
@@ -75,6 +77,11 @@ int main(int argc, const char** argv)
         return 2;
     }
 
+    std::cout << "Starting log file" << std::endl;
+    std::string logPath = std::filesystem::current_path().string() + "/";
+    std::string logFile = logPath + "fwf_robot.log";
+    std::shared_ptr<fwf::ILogger> logger = std::shared_ptr<fwf::ILogger>(fwf::ILogger::New(logFile.c_str()));
+
 #ifdef TARGET_WINDOWS
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -84,19 +91,23 @@ int main(int argc, const char** argv)
     }
 #endif
 
+    const char* pktLogPath = 0;
+#ifndef NDEBUG
+    pktLogPath = logPath.c_str();
+#endif
+
+    std::cout << "Creating link to server" << std::endl;
     std::shared_ptr<fwf::ClientLink> serverComms;
     try
     {
-        serverComms = std::make_shared<fwf::ClientLink>(svrAddr, port, rf->Name(), rf->Callsign(), *(argv + 3));
+        serverComms = std::make_shared<fwf::ClientLink>(svrAddr, port, rf->Name(), rf->Callsign(), *(argv + 3), pktLogPath);
     }
     catch (...)
     {
         std::cerr << "Session client startup failed" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         return 2;
     }
-
-    std::string logFile = std::filesystem::current_path().string() + "/fwf_robot.log";
-    std::shared_ptr<fwf::ILogger> logger = std::shared_ptr<fwf::ILogger>(fwf::ILogger::New(logFile.c_str()));
 
     int err = 0;
     robotTimeout = ROBOT_TIMEOUT;
@@ -111,7 +122,7 @@ int main(int argc, const char** argv)
             unsigned int pktCount = serverComms->GetRcvdPacketCount();
             if (pktCount > prevPacketCount)
             {
-                pktCount = prevPacketCount;
+                prevPacketCount = pktCount;
                 robotTimeout = ROBOT_TIMEOUT;
             }
             --robotTimeout;

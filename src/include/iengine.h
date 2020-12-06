@@ -47,17 +47,20 @@ public:
     // connect to a rendezvous server, and then start the P2P stuff
     virtual bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode, bool logging) = 0;
     virtual void LeaveSession() = 0;
+    virtual bool IsSessionActive() = 0;
 
     // start or stop recording the curent flight
     virtual void StartRecording() = 0;
     virtual void StopRecording() = 0;
     virtual bool IsRecording() = 0;
 
-    virtual std::string StatusSummary() = 0;
-    virtual std::string StatusDetail(unsigned int i) = 0;
-
-    // this group called from the simulation interfaces
+    // this is triggered by the simulation's flight loop
     virtual float DoFlightLoop() = 0;
+
+    // this provides information for the status window
+    virtual bool IsConnected(std::string & desc) = 0;
+    virtual unsigned int CountOtherFliers() = 0;
+    virtual bool OtherFlier(unsigned int id, std::string& nameCS, float& distance, unsigned int& bearing) = 0;
 
 };
 

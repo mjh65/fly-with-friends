@@ -30,19 +30,6 @@ static const bool infoLogging = true;
 static const bool verboseLogging = false;
 //static const bool debugLogging = false;
 
-SessionHub::SessionHub(const int port, const std::string& pc)
-:   UdpSocketOwner(),
-    SequenceNumberDatabase(),
-    ServerDatabase(),
-    passcode(pc),
-    serviceSocket(this, std::string("SERV"), port), // might throw exception
-    running(true),
-    loopNumber(0),
-    startTimeMs(TIMENOWMS())
-{
-    loopResult = std::async(std::launch::async, &SessionHub::AsyncBroadcastGroupState, this);
-}
-
 SessionHub::SessionHub(const int port, const std::string& pc, const char* logDirPath)
 :   UdpSocketOwner(),
     SequenceNumberDatabase(),
@@ -53,13 +40,16 @@ SessionHub::SessionHub(const int port, const std::string& pc, const char* logDir
     loopNumber(0),
     startTimeMs(TIMENOWMS())
 {
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-    struct tm timeinfo;
-    LOCALTIME(&in_time_t, &timeinfo);
-    std::stringstream ss;
-    ss << logDirPath << std::put_time(&timeinfo, "ServerPkts-%Y-%m-%d-%H-%M.fwf");
-    datagramLog = std::make_unique<std::ofstream>(ss.str().c_str());
+    if (logDirPath)
+    {
+        auto now = std::chrono::system_clock::now();
+        auto in_time_t = std::chrono::system_clock::to_time_t(now);
+        struct tm timeinfo;
+        LOCALTIME(&in_time_t, &timeinfo);
+        std::stringstream ss;
+        ss << logDirPath << std::put_time(&timeinfo, "ServerPkts-%Y-%m-%d-%H-%M.fwf");
+        datagramLog = std::make_unique<std::ofstream>(ss.str().c_str());
+    }
 
     loopResult = std::async(std::launch::async, &SessionHub::AsyncBroadcastGroupState, this);
 }
@@ -130,7 +120,7 @@ void SessionHub::IncomingDatagram(AddressedDatagram dgin)
 void SessionHub::PositionReport(SocketAddress& sender, const char* payload, unsigned int payloadLength)
 {
     // payload consists of client ID, aircraft position data, optional name and callsign
-    if (payloadLength < (sizeof(uint32_t) + AircraftPosition::ENCODED_SIZE)) return;
+    if (payloadLength < (sizeof(uint32_t) + Aircraft::EncodedPositionLength())) return;
     const char* p = payload;
     size_t pl = payloadLength;
 

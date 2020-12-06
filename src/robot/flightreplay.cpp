@@ -121,7 +121,7 @@ bool FlightReplay::AsyncReplayFlight()
     {
         std::this_thread::sleep_until(nextWakeTime);
         LOG_VERBOSE(verboseLogging, "send position, ts=%u, lat=%3.5f, lon=%3.5f", position.msTimestamp, position.latitude, position.longitude);
-        clientLink->SendOurAircraftData(position);
+        clientLink->SetCurrentPosition(position);
         nextWakeTime += std::chrono::milliseconds(periodMs);
     }
     clientLink->LeaveSession();
@@ -182,20 +182,34 @@ bool FlightReplay::Next()
     return result;
 }
 
+inline void wrap(double &p, double d, double l, double u)
+{
+    p += d;
+    if (p < l) p += (u - l);
+    else if (p >= u) p -= (u - l);
+}
+
+inline void limit(double& p, double d, double l, double u)
+{
+    p += d;
+    if (p < l) p = l;
+    else if (p > u) p = u;
+}
+
 void FlightReplay::ApplyDelta()
 {
-    position.latitude += delta.latitude;
-    position.longitude += delta.longitude;
-    position.altitude += delta.altitude;
-    position.heading += delta.heading;
-    position.pitch += delta.pitch;
-    position.roll += delta.roll;
-    position.gear += delta.gear;
-    position.flap += delta.flap;
-    position.spoiler += delta.spoiler;
-    position.speedBrake += delta.speedBrake;
-    position.slat += delta.slat;
-    position.sweep += delta.sweep;
+    wrap(position.latitude, delta.latitude, -180.0f, 180.0f);
+    limit(position.longitude, delta.longitude, -180.0f, 180.0f);
+    limit(position.altitude, delta.altitude, 0.0f, 25000.0f);
+    wrap(position.heading, delta.heading, 0.0f, 360.0f);
+    wrap(position.pitch, delta.pitch, -180.0f, 180.0f);
+    wrap(position.roll, delta.roll, -180.0f, 180.0f);
+    limit(position.gear, delta.gear, 0.0f, 1.0f);
+    limit(position.flap, delta.flap, 0.0f, 1.0f);
+    limit(position.spoiler, delta.spoiler, 0.0f, 1.0f);
+    limit(position.speedBrake, delta.speedBrake, 0.0f, 1.0f);
+    limit(position.slat, delta.slat, 0.0f, 1.0f);
+    limit(position.sweep, delta.sweep, 0.0f, 1.0f);
 }
 
 bool FlightReplay::DecodeAsciiCSV(std::string& csv)
@@ -208,10 +222,7 @@ bool FlightReplay::DecodeAsciiCSV(std::string& csv)
         unsigned int repeats = 0;
         if ((SSCANF(p + 1, "%u", &repeats) == 1) && (repeats > 1))
         {
-            delta.latitude = delta.longitude = delta.altitude = 0.0;
-            delta.heading = delta.pitch = delta.roll = 0.0;
-            delta.gear = delta.flap = delta.spoiler = 0.0;
-            delta.speedBrake = delta.slat = delta.sweep = 0.0;
+            delta.Reset();
             deltasLeft = repeats - 1;
         }
     }
@@ -237,6 +248,8 @@ bool FlightReplay::DecodeAsciiCSV(std::string& csv)
         position.speedBrake = d;
         position.slat = e;
         position.sweep = f;
+        delta.Reset();
+        ApplyDelta();
     }
     else if (*p == 'R')
     {

@@ -32,8 +32,7 @@ class SessionHub : public UdpSocketOwner, public SequenceNumberDatabase, public 
     // This class implements the FlyWithFriends session server.
 
 public:
-    SessionHub(const int port, const std::string& passcode);
-    SessionHub(const int port, const std::string& passcode, const char* logDirPath);
+    SessionHub(const int port, const std::string& passcode, const char* logDirPath = 0);
     virtual ~SessionHub();
 
     void Stop();

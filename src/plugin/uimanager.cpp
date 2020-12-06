@@ -211,8 +211,15 @@ float UIManager::UpdateDialogs()
         break;
     case HOSTING:
     case JOINED:
-        UpdateStatusDialog();
-        nextCall = 1.0;
+        if (engine->IsSessionActive())
+        {
+            UpdateStatusDialog();
+            nextCall = 1.0;
+        }
+        else
+        {
+            StopSession();
+        }
         break;
     default:
         nextCall = 5.0;
@@ -402,13 +409,57 @@ void UIManager::CreateStatusDialog()
 
 void UIManager::UpdateStatusDialog()
 {
-    std::string line(engine->StatusSummary());
-    LOG_INFO(0,"status headline - %s", line.c_str());
-    statusDialog->SetStatusText(0, line.c_str());
-    for (unsigned int i=0; i<3; ++i)
+    char sbuffer[64];
+    std::string line;
+    bool connected = engine->IsConnected(line);
+    if (connected)
     {
-        std::string line(engine->StatusDetail(i));
-        statusDialog->SetStatusText(i+1, line.c_str());
+        line += " as " + pilotName + " to " + hostingAddr + ':' + hostingPort;
+        unsigned int n = engine->CountOtherFliers();
+        if (n > 1)
+        {
+            SPRINTF(sbuffer, "%u", n);
+            line = line + " with " + sbuffer + " other fliers.";
+        }
+        else if (n == 1)
+        {
+            line += " with 1 other flier.";
+        }
+    }
+    statusDialog->SetStatusText(0, line.c_str());
+
+    for (unsigned int i = 1; i < 4; ++i)
+    {
+        if (!connected)
+        {
+            statusDialog->SetStatusText(i, "");
+        }
+        else
+        {
+            std::string nameCS;
+            float distance;
+            unsigned int bearing;
+            bool active = engine->OtherFlier(i, nameCS, distance, bearing);
+            SPRINTF(sbuffer, "%u: ", i);
+            line = sbuffer;
+            if (active)
+            {
+                if (distance < 1.0f)
+                {
+                    SPRINTF(sbuffer, " %dm", static_cast<int>(1000.0f * distance));
+                }
+                else if (distance < 10.0f)
+                {
+                    SPRINTF(sbuffer, " %0.1fkm", distance);
+                }
+                else
+                {
+                    SPRINTF(sbuffer, " %dkm", static_cast<int>(distance));
+                }
+                line = line + nameCS + sbuffer;
+            }
+            statusDialog->SetStatusText(i, line.c_str());
+        }
     }
 }
 

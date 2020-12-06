@@ -19,6 +19,7 @@
 #include "aircraft.h"
 #include "datagrams.h"
 #include "ilogger.h"
+#include <cmath>
 
 namespace fwf {
 
@@ -26,10 +27,20 @@ namespace fwf {
 //static const bool verboseLogging = false;
 static const bool debugLogging = false;
 
+void AircraftPosition::Reset()
+{
+    latitude = longitude = altitude = 0.0;
+    heading = pitch = roll = 0.0;
+    gear = flap = spoiler = 0.0;
+    speedBrake = slat = sweep = 0.0;
+}
 
-
-
-
+double AircraftPosition::DistanceTo(double lat, double lon)
+{
+    double p = 0.017453292519943295f;    // pi/180
+    double a = 0.5f - cos((lat - latitude) * p) / 2 + cos(latitude * p) * cos(lat * p) * (1 - cos((lon - longitude) * p)) / 2;
+    return 12742.0f * asin(sqrt(a)); // 2 * R; R = 6371 km
+}
 
 unsigned int AircraftPosition::EncodeTo(char* buffer)
 {
@@ -107,8 +118,6 @@ unsigned int AircraftPosition::DecodeFrom(const char* buffer)
     sweep = ((float)*q++) / 255;
     return (unsigned int)((const char*)q - buffer);
 }
-
-
 
 inline unsigned int calcEpl()
 {
@@ -239,6 +248,17 @@ TrackedAircraft::TrackedAircraft(uint32_t u)
 {
 }
 
+float TrackedAircraft::Distance()
+{
+    std::lock_guard<std::mutex> lock(guard);
+    return distance;
+}
+
+unsigned int TrackedAircraft::Bearing()
+{
+    return 0;
+}
+
 inline double Next(double r, double s0, double s1)
 {
     return s0 + r * (s1 - s0);
@@ -265,7 +285,7 @@ inline double Next(double r, double s0, double s1, double q1, double q2)
 AircraftPosition TrackedAircraft::GetPrediction(uint32_t ptime)
 {
     std::lock_guard<std::mutex> lock(targetGuard); // no update to predictions while we're in here
-    if (ptime > current.msTimestamp)
+    if ((countReports > 2) && (ptime > current.msTimestamp))
     {
         if (ptime >= target.msTimestamp)
         {
@@ -341,8 +361,7 @@ inline double Delta(unsigned int t, double s0, double s1, double q1, double q2)
     return Delta(t, s0, s1);
 }
 
-
-void TrackedAircraft::UpdateTracking(AircraftPosition& ap, uint32_t tsRcvd)
+void TrackedAircraft::UpdateTracking(AircraftPosition& ap, uint32_t tsRcvd, double lat, double lon)
 {
     // create a new aiming point, which will be 'targetDeltaMs' ahead of the current position
     if (countReports == 0)
@@ -351,6 +370,7 @@ void TrackedAircraft::UpdateTracking(AircraftPosition& ap, uint32_t tsRcvd)
         tsOffset = (int)tsRcvd - (int)ap.msTimestamp;
         ap.msTimestamp += tsOffset; // localise the timestamp
         LOG_DEBUG(debugLogging, "initial timestamp offset = %d", tsOffset);
+        std::lock_guard<std::mutex> lock(targetGuard);
         reportedLast = current = ap;
     }
     else
@@ -367,22 +387,40 @@ void TrackedAircraft::UpdateTracking(AircraftPosition& ap, uint32_t tsRcvd)
 
         // work out the scaling factor which will be applied to all pairs of prev/last samples
         uint32_t sampleDistance = reportedLast.msTimestamp - reportedPrev.msTimestamp;
-        double r = static_cast<double>((tsRcvd + PREDICTION_INTERCEPT_MS) - reportedLast.msTimestamp) / sampleDistance;
-
-        // figure out what the next target will be
-        AircraftPosition nextTarget;
-        nextTarget.msTimestamp = tsRcvd + PREDICTION_INTERCEPT_MS;
-        nextTarget.latitude = Target(r, reportedPrev.latitude, reportedLast.latitude);
-        nextTarget.longitude = Target(r, reportedPrev.longitude, reportedLast.longitude, -90.0f, 90.0f);
-        nextTarget.altitude = Target(r, reportedPrev.altitude, reportedLast.altitude);
-        nextTarget.heading = Target(r, reportedPrev.heading, reportedLast.heading, 90.0f, 270.0f);
-        nextTarget.pitch = Target(r, reportedPrev.pitch, reportedLast.pitch, -90.0f, 90.0f);
-        nextTarget.roll = Target(r, reportedPrev.roll, reportedLast.roll, -90.0f, 90.0f);
-        nextTarget.gear = Target(r, reportedPrev.gear, reportedLast.gear);
 
         // set the lat/lon deltas in case we (temporally) overrun the target without getting any further samples
-        double dlat = Delta(sampleDistance, reportedPrev.latitude, reportedLast.latitude);
-        double dlon = Delta(sampleDistance, reportedPrev.longitude, reportedLast.longitude, -90.0f, 90.0f);
+        AircraftPosition nextTarget;
+        double dlat;
+        double dlon;
+
+        double lateralDistance = reportedPrev.DistanceTo(reportedLast.latitude, reportedLast.longitude);
+        double speed = 1.0e6 * lateralDistance / sampleDistance;
+        LOG_DEBUG(debugLogging, "sample->sample  dist=%0.5fkm, t=%ums, speed=%0.5f m/s", lateralDistance, sampleDistance, speed);
+        if (speed > 1000.0)
+        {
+            // seems likely the aircraft has been relocated rather than flown.
+            // just set the next target location to the aircraft's new location
+            nextTarget.msTimestamp = tsRcvd;
+            nextTarget = reportedLast;
+            dlat = dlon = 0;
+        }
+        else
+        {
+            // calculate a target location based on the difference between the last 2 samples
+            double r = static_cast<double>((tsRcvd + PREDICTION_INTERCEPT_MS) - reportedLast.msTimestamp) / sampleDistance;
+            nextTarget.msTimestamp = tsRcvd + PREDICTION_INTERCEPT_MS;
+            nextTarget.latitude = Target(r, reportedPrev.latitude, reportedLast.latitude);
+            nextTarget.longitude = Target(r, reportedPrev.longitude, reportedLast.longitude, -90.0f, 90.0f);
+            nextTarget.altitude = Target(r, reportedPrev.altitude, reportedLast.altitude);
+            nextTarget.heading = Target(r, reportedPrev.heading, reportedLast.heading, 90.0f, 270.0f);
+            nextTarget.pitch = Target(r, reportedPrev.pitch, reportedLast.pitch, -90.0f, 90.0f);
+            nextTarget.roll = Target(r, reportedPrev.roll, reportedLast.roll, -90.0f, 90.0f);
+            nextTarget.gear = Target(r, reportedPrev.gear, reportedLast.gear);
+
+            // set the lat/lon deltas in case we (temporally) overrun the target without getting any further samples
+            dlat = Delta(sampleDistance, reportedPrev.latitude, reportedLast.latitude);
+            dlon = Delta(sampleDistance, reportedPrev.longitude, reportedLast.longitude, -90.0f, 90.0f);
+        }
 
         {
             std::lock_guard<std::mutex> lock(targetGuard);
@@ -390,6 +428,12 @@ void TrackedAircraft::UpdateTracking(AircraftPosition& ap, uint32_t tsRcvd)
             deltas.latitude = dlat;
             deltas.longitude = dlon;
         }
+    }
+
+    {
+        float dUs = static_cast<float>(ap.DistanceTo(lat, lon));
+        std::lock_guard<std::mutex> lock(guard);
+        distance = dUs;
     }
 
     ++countReports;

@@ -29,29 +29,6 @@ namespace fwf {
 static const bool infoLogging = false;
 static const bool verboseLogging = false;
 
-ClientLink::ClientLink(IPv4Address & a, int pn, const char * n, const char * cs, const char * pc)
-:   UdpSocketOwner(),
-    SequenceNumberDatabase(),
-    TrackedAircraftDatabase(),
-    sessionServerAddress(a),
-    sessionServerPort(pn),
-    name(n),
-    callsign(cs),
-    passcode(pc),
-    sessionUUID(0),
-    serverConnection(this,std::string("SMGR")),
-    frameNumber(1),
-    startTimeMs(TIMENOWMS()),
-    sessionState(JOINING)
-{
-    std::string t1 = std::string(n) + callsign + passcode;
-    unsigned int t2;
-    memcpy(&t2, t1.c_str(), sizeof(unsigned int));
-    t2 |= (unsigned int)time(0);
-    srand(t2);
-    sessionUUID = rand();
-}
-
 ClientLink::ClientLink(IPv4Address& a, int pn, const char* n, const char* cs, const char* pc, const char* logDirPath)
 :   UdpSocketOwner(),
     SequenceNumberDatabase(),
@@ -65,22 +42,29 @@ ClientLink::ClientLink(IPv4Address& a, int pn, const char* n, const char* cs, co
     serverConnection(this, std::string("SMGR")),
     frameNumber(1),
     startTimeMs(TIMENOWMS()),
+    lastRcvTime(0),
     sessionState(JOINING)
 {
-    std::string t1 = std::string(n) + callsign + passcode;
+    std::string t1 = name + callsign + passcode;
     unsigned int t2;
     memcpy(&t2, t1.c_str(), sizeof(unsigned int));
     t2 |= (unsigned int)time(0);
     srand(t2);
     sessionUUID = rand();
 
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-    struct tm timeinfo;
-    LOCALTIME(&in_time_t, &timeinfo);
-    std::stringstream ss;
-    ss << logDirPath << std::put_time(&timeinfo, "ClientPkts-%Y-%m-%d-%H-%M.fwf");
-    datagramLog = std::make_unique<std::ofstream>(ss.str().c_str());
+    ourLocation.msTimestamp = LocalTime();
+    flightLoopDone = std::async(std::launch::async, &ClientLink::AsyncFlightLoop, this);
+
+    if (logDirPath)
+    {
+        auto now = std::chrono::system_clock::now();
+        auto in_time_t = std::chrono::system_clock::to_time_t(now);
+        struct tm timeinfo;
+        LOCALTIME(&in_time_t, &timeinfo);
+        std::stringstream ss;
+        ss << logDirPath << std::put_time(&timeinfo, "ClientPkts-%Y-%m-%d-%H-%M.fwf");
+        datagramLog = std::make_unique<std::ofstream>(ss.str().c_str());
+    }
 }
 
 ClientLink::~ClientLink()
@@ -91,69 +75,72 @@ ClientLink::~ClientLink()
 
 void ClientLink::LeaveSession()
 {
-    std::lock_guard<std::mutex> lock(guard);
-    if ((sessionState == JOINING) || (sessionState == JOINED))
     {
-        leaveCompleted = std::async(std::launch::async, &ClientLink::AsyncDisconnectFromSession, this);
-        sessionState = LEAVING;
+        std::lock_guard<std::mutex> lock(guard);
+        if ((sessionState == JOINING) || (sessionState == JOINED))
+        {
+            leaveCompleted = std::async(std::launch::async, &ClientLink::AsyncDisconnectFromSession, this);
+            sessionState = LEAVING;
+        }
+        else
+        {
+            sessionState = GONE;
+        }
     }
-    else
-    {
-        sessionState = GONE;
-    }
+    std::unique_lock<std::mutex> lock(flightLoopCVGuard);
+    flightLoopBlock.notify_one();
 }
 
-void ClientLink::SendOurAircraftData(AircraftPosition& us)
+void ClientLink::SetCurrentPosition(AircraftPosition& ap)
 {
-    us.msTimestamp = LocalTime();
-    if (!flightLoopDone.valid() || (flightLoopDone.wait_for(std::chrono::seconds(0)) == std::future_status::ready))
     {
-        flightLoopDone = std::async(std::launch::async, &ClientLink::AsyncFlightLoop, this, us);
-        LOG_VERBOSE(verboseLogging, "async flight loop triggered");
+        std::lock_guard<std::mutex> lock(guard);
+        ourLocation = ap;
     }
-    else
-    {
-        LOG_VERBOSE(verboseLogging, "async flight loop skipped as previous loop still running");
-    }
+
+    std::unique_lock<std::mutex> lock(flightLoopCVGuard);
+    flightLoopBlock.notify_one();
 }
 
-bool ClientLink::Connected(std::string & addr, int & port, unsigned int & np)
-{
-    addr = sessionServerAddress.GetQuad();
-    port = sessionServerPort;
-    return Connected(np);
-}
-
-bool ClientLink::Connected(unsigned int & np)
+bool ClientLink::Connected(std::string& desc)
 {
     std::lock_guard<std::mutex> lock(guard);
-    np = ActiveAircraftCount();
-    return (sessionState == JOINED);
+    switch (sessionState)
+    {
+    case JOINING:
+        desc = "Connecting";
+        return false;
+    case JOINED:
+        desc = "Connected";
+        return true;
+    case LEAVING:
+        desc = "Disconnecting";
+        return true;
+    case GONE:
+        desc = "Disconnected";
+        return false;
+    }
+    return false;
+}
+
+bool ClientLink::OtherFlier(unsigned int id, std::string& nameCS, float& distance, unsigned int& bearing)
+{
+    assert(id > 0);
+    std::lock_guard<std::mutex> lock(guard);
+    std::shared_ptr<TrackedAircraft> m = FindMemberByIndex(id - 1);
+    if (m)
+    {
+        nameCS = m->Callsign() + " (" + m->Name() + ')';
+        distance = m->Distance();
+        bearing = m->Bearing();
+        return true;
+    }
+    return false;
 }
 
 unsigned long ClientLink::GetRcvdPacketCount()
 {
     return serverConnection.RcvdDatagramCount();
-}
-
-bool ClientLink::GetFlierIdentifiers(unsigned int id, std::string & n, std::string & cs)
-{
-    std::lock_guard<std::mutex> lock(guard);
-    if (id == 0)
-    {
-        n = name;
-        cs = callsign;
-        return true;
-    }
-
-    std::shared_ptr<TrackedAircraft> m = FindMemberByIndex(id-1);
-    if (m)
-    {
-        n = m->Name();
-        cs = m->Callsign();
-        return true;
-    }
-    return false;
 }
 
 unsigned int ClientLink::GetCurrentAircraftPositions(AircraftPosition* aps)
@@ -168,6 +155,7 @@ bool ClientLink::AsyncDisconnectFromSession()
     while (1)
     {
         std::lock_guard<std::mutex> lock(guard);
+        if (sessionState == GONE) return true;
         if (sessionState == LEAVING) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
@@ -207,12 +195,14 @@ bool ClientLink::AsyncDisconnectFromSession()
 // called from socket thread
 void ClientLink::IncomingDatagram(AddressedDatagram dgin)
 {
+    uint32_t lt = LocalTime();
+
     // if enabled, log everything we receive
     if (datagramLog)
     {
         std::string s = dgin.LogString();
         std::lock_guard<std::mutex> lock(logGuard);
-        (*datagramLog) << "R:" << LocalTime() << ':' << s << std::endl;
+        (*datagramLog) << "R:" << lt << ':' << s << std::endl;
     }
 
     // extract seq-num, command, payload-length
@@ -227,9 +217,13 @@ void ClientLink::IncomingDatagram(AddressedDatagram dgin)
         return;
     }
 
-    if ((cmd == Datagram::WORLDSTATE) && d->ValidPayload())
+    if (d->ValidPayload())
     {
-        IncomingWorldState(d->Payload(), pl);
+        lastRcvTime = lt;
+        if (cmd == Datagram::WORLDSTATE)
+        {
+            IncomingWorldState(d->Payload(), pl);
+        }
     }
 }
 
@@ -242,6 +236,13 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
     {
         LOG_WARN("ignoring short peer notification datagram");
         return;
+    }
+
+    double ourLat, ourLon;
+    {
+        std::lock_guard<std::mutex> lock(guard);
+        ourLat = ourLocation.latitude;
+        ourLon = ourLocation.longitude;
     }
 
     uint32_t rcvTimestamp = LocalTime();
@@ -297,7 +298,7 @@ void ClientLink::IncomingWorldState(const char * payload, unsigned int length)
             m = std::make_shared<TrackedAircraft>(uuid);
             if (AddMember(uuid, m) == MAX_IN_SESSION) continue;
         }
-        m->UpdateTracking(ap, rcvTimestamp);
+        m->UpdateTracking(ap, rcvTimestamp, ourLat, ourLon);
     }
 
     // potentially a name/callsign of one of the members
@@ -341,52 +342,73 @@ uint32_t ClientLink::LocalTime() const
     return ((TIMENOWMS() - startTimeMs) & 0xffffffff);
 }
 
-bool ClientLink::AsyncFlightLoop(AircraftPosition ap)
+bool ClientLink::AsyncFlightLoop()
 {
     LOG_VERBOSE(verboseLogging,"async flight loop started");
-    
-    // generate the datagram that reports our location
-    LOG_VERBOSE(verboseLogging,"creating aircraft position reporting dgram");
-    std::shared_ptr<Datagram> d = std::make_shared<Datagram>();
-    std::shared_ptr<AddressedDatagram> report = std::make_shared<AddressedDatagram>(d, sessionServerAddress, sessionServerPort);
-    d->SetCommand(Datagram::REPORT);
-    d->SetSequenceNumber(frameNumber++);
-
-    // payload consists of our ID, a timestamp, aircraft position data, optional name and callsign
-    char* p = d->Payload();
-    uint32_t uuid = htonl(sessionUUID);
-    memcpy(p, &uuid, sizeof(uuid));
-    p += sizeof(uuid);
-
-    p += ap.EncodeTo(p);
-
-    bool sendNameCallsign = false;
+    while (1)
     {
-        std::lock_guard<std::mutex> lock(guard);
-        sendNameCallsign = (sessionState == JOINING);
-    }
-    if (sendNameCallsign)
-    {
-        unsigned int pl = MAX_PAYLOAD_LEN - ((unsigned int)(p - d->Payload()));
-        STRCPY(p, pl, name.c_str());
-        p += name.size() + 1;
-        pl -= (unsigned int)(name.size() + 1);
-        STRCPY(p, pl, callsign.c_str());
-        p += callsign.size() + 1;
-        pl -= (unsigned int)(callsign.size() + 1);
-    }
+        {
+            std::unique_lock<std::mutex> lock(flightLoopCVGuard);
+            flightLoopBlock.wait_for(lock, std::chrono::milliseconds(2500));
+        }
 
-    d->SetPayloadLength((unsigned int)(p - d->Payload()));
-    if (datagramLog)
-    {
-        std::string s = report->LogString();
-        std::lock_guard<std::mutex> lock(logGuard);
-        (*datagramLog) << "S:" << LocalTime() << ':' << s << std::endl;
-    }
-    serverConnection.QueueDatagram(report);
+        AircraftPosition ap;
+        {
+            std::lock_guard<std::mutex> lock(guard);
+            if ((sessionState != JOINING) && (sessionState != JOINED)) break;
+            ap = ourLocation;
+        }
+        uint32_t lt = ap.msTimestamp = LocalTime();
+        if ((lt - lastRcvTime) > MEMBERSHIP_TIMEOUT_MS)
+        {
+            std::lock_guard<std::mutex> lock(guard);
+            sessionState = GONE;
+            break;
+        }
 
-    CheckLapsedMembership(MEMBERSHIP_TIMEOUT_MS / CLIENT_UPDATE_PERIOD_MS);
-    RemoveExpiredMembership();
+        // generate the datagram that reports our location
+        LOG_VERBOSE(verboseLogging, "creating aircraft position reporting dgram");
+        std::shared_ptr<Datagram> d = std::make_shared<Datagram>();
+        std::shared_ptr<AddressedDatagram> report = std::make_shared<AddressedDatagram>(d, sessionServerAddress, sessionServerPort);
+        d->SetCommand(Datagram::REPORT);
+        d->SetSequenceNumber(frameNumber++);
+
+        // payload consists of our ID, aircraft position data, optional name and callsign
+        char* p = d->Payload();
+        uint32_t uuid = htonl(sessionUUID);
+        memcpy(p, &uuid, sizeof(uuid));
+        p += sizeof(uuid);
+
+        p += ap.EncodeTo(p);
+
+        bool sendNameCallsign = false;
+        {
+            std::lock_guard<std::mutex> lock(guard);
+            sendNameCallsign = (sessionState == JOINING) || ((frameNumber & 0x3f) == 0);
+        }
+        if (sendNameCallsign)
+        {
+            unsigned int pl = MAX_PAYLOAD_LEN - ((unsigned int)(p - d->Payload()));
+            STRCPY(p, pl, name.c_str());
+            p += name.size() + 1;
+            pl -= (unsigned int)(name.size() + 1);
+            STRCPY(p, pl, callsign.c_str());
+            p += callsign.size() + 1;
+            pl -= (unsigned int)(callsign.size() + 1);
+        }
+
+        d->SetPayloadLength((unsigned int)(p - d->Payload()));
+        if (datagramLog)
+        {
+            std::string s = report->LogString();
+            std::lock_guard<std::mutex> lock(logGuard);
+            (*datagramLog) << "S:" << LocalTime() << ':' << s << std::endl;
+        }
+        serverConnection.QueueDatagram(report);
+
+        CheckLapsedMembership(MEMBERSHIP_TIMEOUT_MS / CLIENT_UPDATE_PERIOD_MS);
+        RemoveExpiredMembership();
+    }
 
     LOG_VERBOSE(verboseLogging,"async flight loop completed");
     return true;

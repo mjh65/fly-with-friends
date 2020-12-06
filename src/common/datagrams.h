@@ -42,8 +42,6 @@ public:
         REPORT,             // client->server, send a report of position and identity
         LEAVING,            // client->server, graceful sign out of session
         WORLDSTATE,         // server->client, share all positions, and periodic single identities
-        IDENTIFY,   // obsolete
-        MEMBER      // obsolete
     };
     Datagram() : length(0) { }
     virtual ~Datagram() { }

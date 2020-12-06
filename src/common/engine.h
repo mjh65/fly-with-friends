@@ -41,12 +41,15 @@ public:
     void StopSessionServer() override;
     bool JoinSession(const char * addr, const int port, const char * name, const char * callsign, const char * passcode, bool logging) override;
     void LeaveSession() override;
+    bool IsSessionActive() override;
     void StartRecording() override;
     void StopRecording() override;
     bool IsRecording() override { return  (recording != nullptr); }
-    std::string StatusSummary() override;
-    std::string StatusDetail(unsigned int i) override;
     float DoFlightLoop() override;
+
+    bool IsConnected(std::string& desc) override;
+    unsigned int CountOtherFliers() override;
+    bool OtherFlier(unsigned int id, std::string& nameCS, float& distance, unsigned int& bearing) override;
 
 protected:
 
