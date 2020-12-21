@@ -36,7 +36,7 @@ const int detailLogging = 0;
 UIManager::UIManager(std::shared_ptr<IPrefs> p, std::shared_ptr<IEngine> e)
 :   prefs(p),
     engine(e),
-    planesAreOwned(false),
+    activePlaneCount(-1),
     joinFS(-1),
     currentState(IDLE)
 {
@@ -70,15 +70,19 @@ UIManager::~UIManager()
 
 bool UIManager::AcquirePlanes()
 {
-    if (planesAreOwned) return true;
-    int r = XPLMAcquirePlanes(0, 0, 0);
-    LOG_INFO(infoLogging, "initial attempt to acquire planes -> %d", r);
-    if (r) return (planesAreOwned = true); // deliberate assignment
+    if (activePlaneCount >= 0) return true;
 
     int total = 0, active = 0;
     XPLMPluginID planesOwner;
     XPLMCountAircraft(&total, &active, &planesOwner);
     LOG_INFO(infoLogging, "active planes -> %d of %d total", active, total);
+
+    if (XPLMAcquirePlanes(0, 0, 0))
+    {
+        LOG_INFO(infoLogging, "initial attempt to acquire planes -> successful");
+        activePlaneCount = active;
+        return true;
+    }
 
     std::string stat[4];
     if (planesOwner < 0)
@@ -94,10 +98,13 @@ bool UIManager::AcquirePlanes()
             // JoinFS seems to grab the planes on loading, but we assume that
             // it's fine to overrule this if our user has opened our dialog.
             joinFS = planesOwner;
-            XPLMDisablePlugin(joinFS); // deliberate assignment
-            r = XPLMAcquirePlanes(0, 0, 0);
-            LOG_INFO(infoLogging, "second attempt to acquire planes -> %d", r);
-            if (r) return (planesAreOwned = true); // deliberate assignment
+            XPLMDisablePlugin(joinFS);
+            if (XPLMAcquirePlanes(0, 0, 0))
+            {
+                LOG_INFO(infoLogging, "second attempt to acquire planes after disabling JoinFS -> successful");
+                activePlaneCount = active;
+                return true;
+            }
             stat[0] = std::string("Couldn't acquire planes, even after disabling JoinFS.");
             XPLMEnablePlugin(joinFS);
             joinFS = -1;
@@ -113,18 +120,28 @@ bool UIManager::AcquirePlanes()
     CreateStatusDialog();
     for (int i=0; i<4; ++i) statusDialog->SetStatusText(i, stat[i].c_str());
 
+    activePlaneCount = -1;
     return false;
 }
 
 void UIManager::ReleasePlanes()
 {
-    if (planesAreOwned)
+    if (activePlaneCount >= 0)
     {
         XPLMReleasePlanes();
-        planesAreOwned = false;
+        activePlaneCount = -1;
         LOG_INFO(infoLogging, "released planes");
         if (joinFS >= 0) XPLMEnablePlugin(joinFS);
     }
+}
+
+void UIManager::UpdateAircraftCount()
+{
+    int total = 0, active = 0;
+    XPLMPluginID planesOwner;
+    XPLMCountAircraft(&total, &active, &planesOwner);
+    LOG_INFO(infoLogging, "updated active planes -> now %d of %d total", active, total);
+    if (activePlaneCount >= 0) activePlaneCount = active;
 }
 
 void UIManager::EnteredVR()
@@ -414,7 +431,14 @@ void UIManager::UpdateStatusDialog()
     bool connected = engine->IsConnected(line);
     if (connected)
     {
-        line += " as " + pilotName + " to " + hostingAddr + ':' + hostingPort;
+        if (currentState == HOSTING)
+        {
+            line += " as " + pilotName + " to " + hostingAddr + ':' + hostingPort;
+        }
+        else
+        {
+            line += " as " + pilotName + " to " + serverAddr + ':' + serverPort;
+        }
         unsigned int n = engine->CountOtherFliers();
         if (n > 1)
         {

@@ -42,6 +42,7 @@ public:
     // called from X-Plane DLL main routines
     bool AcquirePlanes();
     void ReleasePlanes();
+    void UpdateAircraftCount();
     void EnteredVR();
     void LeavingVR();
     void ConfigureHosting();
@@ -71,7 +72,7 @@ private:
 private:
     std::shared_ptr<IPrefs>         prefs;
     std::shared_ptr<IEngine>        engine;
-    bool                            planesAreOwned;
+    int                             activePlaneCount; // -1 means not acquired
     XPLMPluginID                    joinFS;
     std::unique_ptr<HostingDialog>  hostingDialog;
     std::unique_ptr<JoiningDialog>  joiningDialog;

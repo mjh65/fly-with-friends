@@ -186,13 +186,17 @@ PLUGIN_API void XPluginDisable(void)
 PLUGIN_API void XPluginReceiveMessage(XPLMPluginID inFrom, int inMsg, void * inParam)
 {
     LOG_VERBOSE(verboseLogging, "receive message");
-    if ((inFrom == XPLM_PLUGIN_XPLANE) && (inMsg == XPLM_MSG_ENTERED_VR))
+    if (inFrom == XPLM_PLUGIN_XPLANE)
     {
-        uimanager->EnteredVR();
-    }
-    else if ((inFrom == XPLM_PLUGIN_XPLANE) && (inMsg == XPLM_MSG_EXITING_VR))
-    {
-        uimanager->LeavingVR();
+        uimanager->UpdateAircraftCount();
+        if (inMsg == XPLM_MSG_ENTERED_VR)
+        {
+            uimanager->EnteredVR();
+        }
+        else if (inMsg == XPLM_MSG_EXITING_VR)
+        {
+            uimanager->LeavingVR();
+        }
     }
 }
 
