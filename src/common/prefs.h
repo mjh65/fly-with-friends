@@ -29,6 +29,8 @@ public:
     PreferencesFile(const char * filepath);
     virtual ~PreferencesFile();
 
+    void Save() override;
+
     std::string Name() const override;
     void Name(std::string &) override;
     std::string Callsign() const override;
@@ -45,7 +47,6 @@ public:
 protected:
     void Init();
     void Load();
-    void Save();
 
     template<typename DATATYPE>
     DATATYPE Get(const std::string &ptr, DATATYPE def) const;

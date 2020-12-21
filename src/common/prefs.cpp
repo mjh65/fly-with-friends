@@ -45,11 +45,6 @@ PreferencesFile::PreferencesFile(const char * f)
 
 PreferencesFile::~PreferencesFile()
 {
-    try {
-        Save();
-    } catch (...) {
-        // can't rescue the process at this point
-    }
 }
 
 void PreferencesFile::Init()

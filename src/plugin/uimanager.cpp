@@ -53,19 +53,7 @@ UIManager::UIManager(std::shared_ptr<IPrefs> p, std::shared_ptr<IEngine> e)
 
 UIManager::~UIManager()
 {
-    int pnum;
-    if (SSCANF(hostingPort.c_str(), "%u", &pnum) == 1)
-    {
-        prefs->HostingPort(pnum);
-    }
-    prefs->Name(pilotName);
-    prefs->Callsign(pilotCallsign);
-    prefs->ServerAddr(serverAddr);
-    if (SSCANF(serverPort.c_str(), "%u", &pnum) == 1)
-    {
-        prefs->ServerPort(pnum);
-    }
-    prefs->Passcode(sessionPasscode);
+    SavePreferences();
 }
 
 bool UIManager::AcquirePlanes()
@@ -363,6 +351,8 @@ void UIManager::StartSession(const char *addr, const char *port, const char *nam
         serverPort = portStr;
     }
 
+    SavePreferences();
+
     if (currentState == HOST_CONFIG)
     {
         engine->StartSessionServer(portNumber, passcode, logging);
@@ -405,6 +395,24 @@ void UIManager::StopRecording()
     LOG_INFO(infoLogging, "stop recording flight");
     engine->StopRecording();
     statusDialog->SetRecordingButton(0);
+}
+
+void UIManager::SavePreferences()
+{
+    int pnum;
+    if (SSCANF(hostingPort.c_str(), "%u", &pnum) == 1)
+    {
+        prefs->HostingPort(pnum);
+    }
+    prefs->Name(pilotName);
+    prefs->Callsign(pilotCallsign);
+    prefs->ServerAddr(serverAddr);
+    if (SSCANF(serverPort.c_str(), "%u", &pnum) == 1)
+    {
+        prefs->ServerPort(pnum);
+    }
+    prefs->Passcode(sessionPasscode);
+    prefs->Save();
 }
 
 void UIManager::CreateStatusDialog()

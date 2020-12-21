@@ -60,6 +60,7 @@ public:
     void StopRecording();
 
 protected:
+    void SavePreferences();
     void CreateStatusDialog();
     void UpdateStatusDialog();
 

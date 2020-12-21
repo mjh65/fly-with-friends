@@ -31,6 +31,8 @@ public:
     static std::shared_ptr<IPrefs> New(const char * filepath);
     virtual ~IPrefs() {}
 
+    virtual void Save() = 0;
+
     virtual std::string Name() const = 0;
     virtual void Name(std::string &) = 0;
     virtual std::string Callsign() const = 0;
