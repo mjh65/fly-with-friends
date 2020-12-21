@@ -189,8 +189,10 @@ float Engine::DoFlightLoop()
             ss << "A," << std::setprecision(16)
                 << position.latitude << ',' << position.longitude << ',' << position.altitude << ','
                 << position.heading << ',' << position.pitch << ',' << position.roll << ','
-                << position.gear << ',' << position.flap << ',' << position.spoiler << ','
-                << position.speedBrake << ',' << position.slat << ',' << position.sweep;
+                << position.rudder << ',' << position.elevator << ',' << position.aileron << ','
+                << position.speedbrake << ',' << position.flaps << ','
+                << position.gear << ',' << position.beacon << ',' << position.strobe << ','
+                << position.navlight << ',' << position.taxilight << ',' << position.landlight;
             (*recording) << ss.str() << std::endl;
         }
     }

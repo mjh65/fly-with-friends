@@ -182,34 +182,38 @@ bool FlightReplay::Next()
     return result;
 }
 
-inline void wrap(double &p, double d, double l, double u)
+inline double wrap(double p, double d, double l, double u)
 {
     p += d;
     if (p < l) p += (u - l);
     else if (p >= u) p -= (u - l);
+    return p;
 }
 
-inline void limit(double& p, double d, double l, double u)
+inline double limit(double p, double d, double l, double u)
 {
     p += d;
     if (p < l) p = l;
     else if (p > u) p = u;
+    return p;
 }
 
 void FlightReplay::ApplyDelta()
 {
-    wrap(position.latitude, delta.latitude, -180.0f, 180.0f);
-    limit(position.longitude, delta.longitude, -180.0f, 180.0f);
-    limit(position.altitude, delta.altitude, 0.0f, 25000.0f);
-    wrap(position.heading, delta.heading, 0.0f, 360.0f);
-    wrap(position.pitch, delta.pitch, -180.0f, 180.0f);
-    wrap(position.roll, delta.roll, -180.0f, 180.0f);
-    limit(position.gear, delta.gear, 0.0f, 1.0f);
-    limit(position.flap, delta.flap, 0.0f, 1.0f);
-    limit(position.spoiler, delta.spoiler, 0.0f, 1.0f);
-    limit(position.speedBrake, delta.speedBrake, 0.0f, 1.0f);
-    limit(position.slat, delta.slat, 0.0f, 1.0f);
-    limit(position.sweep, delta.sweep, 0.0f, 1.0f);
+    position.latitude = wrap(position.latitude, delta.latitude, -180.0f, 180.0f);
+    position.longitude = limit(position.longitude, delta.longitude, -180.0f, 180.0f);
+    position.altitude = limit(position.altitude, delta.altitude, 0.0f, 25000.0f);
+
+    position.heading = wrap(position.heading, delta.heading, 0.0f, 360.0f);
+    position.pitch = wrap(position.pitch, delta.pitch, -180.0f, 180.0f);
+    position.roll = wrap(position.roll, delta.roll, -180.0f, 180.0f);
+
+    position.rudder = limit(position.rudder, delta.rudder, -1.0f, 1.0f);
+    position.elevator = limit(position.elevator, delta.elevator, -1.0f, 1.0f);
+    position.aileron = limit(position.aileron, delta.aileron, -1.0f, 1.0f);
+
+    position.speedbrake = limit(position.speedbrake, delta.speedbrake, 0.0f, 1.0f);
+    position.flaps = limit(position.flaps, delta.flaps, 0.0f, 1.0f);
 }
 
 bool FlightReplay::DecodeAsciiCSV(std::string& csv)
@@ -232,22 +236,29 @@ bool FlightReplay::DecodeAsciiCSV(std::string& csv)
         // absolute location and state
         double x, y, z;
         float i, j, k;
-        float a, b, c, d, e, f;
-        int nFields = SSCANF(psep + 1, "%lf,%lf,%lf,%f,%f,%f,%f,%f,%f,%f,%f,%f",
-            &x, &y, &z, &i, &j, &k, &a, &b, &c, &d, &e, &f);
-        if (nFields != 12) return false;
+        float a, b, c, d, e;
+        int m, n, o, p, q, r;
+        int nFields = SSCANF(psep + 1, "%lf,%lf,%lf,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%d",
+            &x, &y, &z, &i, &j, &k, &a, &b, &c, &d, &e, &m, &n, &o, &p, &q, &r);
+        if (nFields != 17) return false;
         position.latitude = x;
         position.longitude = y;
         position.altitude = z;
         position.heading = i; 
         position.pitch = j;
         position.roll = k;
-        position.gear = a;
-        position.flap = b;
-        position.spoiler = c;
-        position.speedBrake = d;
-        position.slat = e;
-        position.sweep = f;
+        position.rudder = a;
+        position.elevator = b;
+        position.aileron = c;
+        position.speedbrake = d;
+        position.flaps = e;
+
+        position.gear = m;
+        position.beacon = n;
+        position.strobe = o;
+        position.navlight = p;
+        position.taxilight = q;
+        position.landlight = r;
         delta.Reset();
         ApplyDelta();
     }

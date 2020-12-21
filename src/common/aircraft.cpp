@@ -29,10 +29,11 @@ static const bool debugLogging = false;
 
 void AircraftPosition::Reset()
 {
-    latitude = longitude = altitude = 0.0;
-    heading = pitch = roll = 0.0;
-    gear = flap = spoiler = 0.0;
-    speedBrake = slat = sweep = 0.0;
+    latitude = longitude = altitude = 0.0f;
+    heading = pitch = roll = 0.0f;
+    rudder = elevator = aileron = 0.0f;
+    speedbrake = flaps = 0.0f;
+    gear = beacon = strobe = navlight = taxilight = landlight = false;
 }
 
 double AircraftPosition::DistanceTo(double lat, double lon)
@@ -45,9 +46,13 @@ double AircraftPosition::DistanceTo(double lat, double lon)
 unsigned int AircraftPosition::EncodeTo(char* buffer)
 {
     char* p = buffer;
+
+    // timestamp
     uint32_t ts = htonl(msTimestamp);
     memcpy(p, &ts, sizeof(ts));
     p += sizeof(ts);
+
+    // position
     int32_t i32 = htonl(static_cast<int32_t>(latitude * (1 << 23))); // convert to 9.23 fixed point
     memcpy(p, &i32, sizeof(i32));
     p += sizeof(i32);
@@ -57,6 +62,8 @@ unsigned int AircraftPosition::EncodeTo(char* buffer)
     i32 = htonl(static_cast<int32_t>(altitude * (1 << 8))); // convert to 24.8 fixed point
     memcpy(p, &i32, sizeof(i32));
     p += sizeof(i32);
+
+    // orientation
     uint16_t u16 = htons(static_cast<uint16_t>(heading * (1 << 7))); // convert to 9.7 fixed point
     memcpy(p, &u16, sizeof(u16));
     p += sizeof(u16);
@@ -66,22 +73,31 @@ unsigned int AircraftPosition::EncodeTo(char* buffer)
     i16 = htons(static_cast<int16_t>(roll * (1 << 7))); // convert to 9.7 fixed point
     memcpy(p, &i16, sizeof(i16));
     p += sizeof(i16);
-    *p++ = static_cast<uint8_t>(gear * 255);
-    *p++ = static_cast<uint8_t>(flap * 255);
-    *p++ = static_cast<uint8_t>(spoiler * 255);
-    *p++ = static_cast<uint8_t>(speedBrake * 255);
-    *p++ = static_cast<uint8_t>(slat * 255);
-    *p++ = static_cast<uint8_t>(sweep * 255);
+
+    // control surfaces
+    *p++ = static_cast<int8_t>(rudder * 127); // -1.0 .. 1.0 ==> -127 .. 127
+    *p++ = static_cast<int8_t>(elevator * 127); // -1.0 .. 1.0 ==> -127 .. 127
+    *p++ = static_cast<int8_t>(aileron * 127); // -1.0 .. 1.0 ==> -127 .. 127
+    *p++ = static_cast<uint8_t>(speedbrake * 255); // 0.0 .. 1.0 ==> 0 .. 255
+    *p++ = static_cast<uint8_t>(flaps * 255); // 0.0 .. 1.0 ==> 0 .. 255
+
+    // gear and lights
+    *p++ = static_cast<uint8_t>((gear ? 0x1 : 0) | (beacon ? 0x2 : 0) | (strobe ? 0x4 : 0) | (navlight ? 0x8 : 0) | (taxilight ? 0x10 : 0) | (landlight ? 0x20 : 0));
+
     return (unsigned int)(p - buffer);
 }
 
 unsigned int AircraftPosition::DecodeFrom(const char* buffer)
 {
     const char* p = buffer;
+
+    // timestamp
     uint32_t ts;
     memcpy(&ts, p, sizeof(ts));
     msTimestamp = ntohl(ts);
     p += sizeof(ts);
+
+    // position
     int32_t i32;
     memcpy(&i32, p, sizeof(i32));
     i32 = ntohl(i32);
@@ -95,6 +111,8 @@ unsigned int AircraftPosition::DecodeFrom(const char* buffer)
     i32 = ntohl(i32);
     altitude = static_cast<double>(i32) / (1 << 8); // convert from 24.8 fixed point
     p += sizeof(i32);
+
+    // orientation
     uint16_t u16;
     memcpy(&u16, p, sizeof(u16));
     u16 = ntohs(u16);
@@ -109,14 +127,26 @@ unsigned int AircraftPosition::DecodeFrom(const char* buffer)
     i16 = ntohs(i16);
     roll = static_cast<float>(i16) / (1 << 7); // convert from 9.7 fixed point
     p += sizeof(i16);
-    const unsigned char* q = (const unsigned char*)p;
-    gear = ((float)*q++) / 255;
-    flap = ((float)*q++) / 255;
-    spoiler = ((float)*q++) / 255;
-    speedBrake = ((float)*q++) / 255;
-    slat = ((float)*q++) / 255;
-    sweep = ((float)*q++) / 255;
-    return (unsigned int)((const char*)q - buffer);
+
+    // control surfaces
+    const int8_t* i8 = (const int8_t*)p;
+    rudder = ((float)*i8++) / 127;
+    elevator = ((float)*i8++) / 127;
+    aileron = ((float)*i8++) / 127;
+    const uint8_t* u8 = (const uint8_t*)i8;
+    speedbrake = ((float)*u8++) / 255;
+    flaps = ((float)*u8++) / 255;
+
+    // gear and lights
+    uint8_t switches = *u8++;
+    gear = (switches & 0x1) != 0;
+    beacon = (switches & 0x2) != 0;
+    strobe = (switches & 0x4) != 0;
+    navlight = (switches & 0x8) != 0;
+    taxilight = (switches & 0x10) != 0;
+    landlight = (switches & 0x20) != 0;
+
+    return (unsigned int)((const char*)u8 - buffer);
 }
 
 inline unsigned int calcEpl()
@@ -264,7 +294,15 @@ inline double Next(double r, double s0, double s1)
     return s0 + r * (s1 - s0);
 }
 
-inline double Next(double r, double s0, double s1, double q1, double q2)
+inline double LimitedNext(double r, double s0, double s1, double l, double u)
+{
+    double n = Next(r, s0, s1);
+    if (n < l) return l;
+    if (n > u) return u;
+    return n;
+}
+
+inline double WrappedNext(double r, double s0, double s1, double q1, double q2)
 {
     if ((s0 < q1) && (s1 > q2))
     {
@@ -299,13 +337,23 @@ AircraftPosition TrackedAircraft::GetPrediction(uint32_t ptime)
         else
         {
             double r = static_cast<double>(ptime - current.msTimestamp) / (target.msTimestamp - current.msTimestamp);
-            current.latitude = Next(r, current.latitude, target.latitude);
-            current.longitude = Next(r, current.longitude, target.longitude, -90.0f, 90.0f);
+            current.latitude = LimitedNext(r, current.latitude, target.latitude, -180.0f, 180.0f);
+            current.longitude = WrappedNext(r, current.longitude, target.longitude, -90.0f, 90.0f);
             current.altitude = Next(r, current.altitude, target.altitude);
-            current.heading = Next(r, current.heading, target.heading, 90.0f, 270.0f);
-            current.pitch = Next(r, current.pitch, target.pitch, -90.0f, 90.0f);
-            current.roll = Next(r, current.roll, target.roll, -90.0f, 90.0f);
-            current.gear = Next(r, current.gear, target.gear);
+            current.heading = WrappedNext(r, current.heading, target.heading, 90.0f, 270.0f);
+            current.pitch = WrappedNext(r, current.pitch, target.pitch, -90.0f, 90.0f);
+            current.roll = WrappedNext(r, current.roll, target.roll, -90.0f, 90.0f);
+            current.rudder = LimitedNext(r, current.rudder, target.rudder, -1.0f, 1.0f);
+            current.elevator = LimitedNext(r, current.elevator, target.elevator, -1.0f, 1.0f);
+            current.aileron = LimitedNext(r, current.aileron, target.aileron, -1.0f, 1.0f);
+            current.speedbrake = target.speedbrake;
+            current.flaps = target.flaps;
+            current.gear = target.gear;
+            current.beacon = target.beacon;
+            current.strobe = target.strobe;
+            current.navlight = target.navlight;
+            current.taxilight = target.taxilight;
+            current.landlight = target.landlight;
         }
         current.msTimestamp = ptime;
     }
@@ -319,7 +367,7 @@ inline double Target(double r, double s0, double s1)
     return s1 + r * (s1 - s0);
 }
 
-inline double Target(double r, double s0, double s1, double q1, double q2)
+inline double WrappedTarget(double r, double s0, double s1, double q1, double q2)
 {
     if ((s0 < q1) && (s1 > q2))
     {
@@ -343,7 +391,7 @@ inline double Delta(unsigned int t, double s0, double s1)
     return ((1000.0f * (s1 - s0)) / t);
 }
 
-inline double Delta(unsigned int t, double s0, double s1, double q1, double q2)
+inline double WrappedDelta(unsigned int t, double s0, double s1, double q1, double q2)
 {
     if ((s0 < q1) && (s1 > q2))
     {
@@ -410,16 +458,26 @@ void TrackedAircraft::UpdateTracking(AircraftPosition& ap, uint32_t tsRcvd, doub
             double r = static_cast<double>((tsRcvd + PREDICTION_INTERCEPT_MS) - reportedLast.msTimestamp) / sampleDistance;
             nextTarget.msTimestamp = tsRcvd + PREDICTION_INTERCEPT_MS;
             nextTarget.latitude = Target(r, reportedPrev.latitude, reportedLast.latitude);
-            nextTarget.longitude = Target(r, reportedPrev.longitude, reportedLast.longitude, -90.0f, 90.0f);
+            nextTarget.longitude = WrappedTarget(r, reportedPrev.longitude, reportedLast.longitude, -90.0f, 90.0f);
             nextTarget.altitude = Target(r, reportedPrev.altitude, reportedLast.altitude);
-            nextTarget.heading = Target(r, reportedPrev.heading, reportedLast.heading, 90.0f, 270.0f);
-            nextTarget.pitch = Target(r, reportedPrev.pitch, reportedLast.pitch, -90.0f, 90.0f);
-            nextTarget.roll = Target(r, reportedPrev.roll, reportedLast.roll, -90.0f, 90.0f);
-            nextTarget.gear = Target(r, reportedPrev.gear, reportedLast.gear);
+            nextTarget.heading = WrappedTarget(r, reportedPrev.heading, reportedLast.heading, 90.0f, 270.0f);
+            nextTarget.pitch = WrappedTarget(r, reportedPrev.pitch, reportedLast.pitch, -90.0f, 90.0f);
+            nextTarget.roll = WrappedTarget(r, reportedPrev.roll, reportedLast.roll, -90.0f, 90.0f);
+            nextTarget.rudder = reportedLast.rudder;
+            nextTarget.elevator = reportedLast.elevator;
+            nextTarget.aileron = reportedLast.aileron;
+            nextTarget.speedbrake = reportedLast.speedbrake;
+            nextTarget.flaps = reportedLast.flaps;
+            nextTarget.gear = reportedLast.gear;
+            nextTarget.beacon = reportedLast.beacon;
+            nextTarget.strobe = reportedLast.strobe;
+            nextTarget.navlight = reportedLast.navlight;
+            nextTarget.taxilight = reportedLast.taxilight;
+            nextTarget.landlight = reportedLast.landlight;
 
             // set the lat/lon deltas in case we (temporally) overrun the target without getting any further samples
             dlat = Delta(sampleDistance, reportedPrev.latitude, reportedLast.latitude);
-            dlon = Delta(sampleDistance, reportedPrev.longitude, reportedLast.longitude, -90.0f, 90.0f);
+            dlon = WrappedDelta(sampleDistance, reportedPrev.longitude, reportedLast.longitude, -90.0f, 90.0f);
         }
 
         {

@@ -33,7 +33,9 @@ struct AircraftPosition
     uint32_t        msTimestamp;
     double          latitude, longitude, altitude;
     double          heading, pitch, roll;
-    double          gear, flap, spoiler, speedBrake, slat, sweep;
+    double          rudder, elevator, aileron;
+    double          speedbrake, flaps;
+    bool            gear, beacon, strobe, navlight, taxilight, landlight;
 
     void Reset();
     double DistanceTo(double lat, double lon);      // lateral in km
