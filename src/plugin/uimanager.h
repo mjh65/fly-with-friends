@@ -43,8 +43,9 @@ public:
     bool AcquirePlanes();
     void ReleasePlanes();
     void UpdateAircraftCount();
-    void EnteredVR();
-    void LeavingVR();
+    void OnEnterVR();
+    void OnLeaveVR();
+    void OnPlaneChange();
     void ConfigureHosting();
     void ConfigureJoining();
     void LeaveSession();

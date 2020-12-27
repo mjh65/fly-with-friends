@@ -132,7 +132,7 @@ void UIManager::UpdateAircraftCount()
     if (activePlaneCount >= 0) activePlaneCount = active;
 }
 
-void UIManager::EnteredVR()
+void UIManager::OnEnterVR()
 {
     switch (currentState)
     {
@@ -153,7 +153,7 @@ void UIManager::EnteredVR()
     }
 }
 
-void UIManager::LeavingVR()
+void UIManager::OnLeaveVR()
 {
     switch (currentState)
     {
@@ -171,6 +171,15 @@ void UIManager::LeavingVR()
     case IDLE:
     default:
         break;
+    }
+}
+
+void UIManager::OnPlaneChange()
+{
+    if (IsVRenabled())
+    {
+        OnLeaveVR();
+        OnEnterVR();
     }
 }
 
