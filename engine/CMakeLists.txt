@@ -5,6 +5,10 @@ project(FWF-Engine-Lib VERSION 1.0 DESCRIPTION "Fly-with-Friends engine library"
 
 add_library(fwfengine STATIC)
 
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
+
 if(WIN32)
     add_compile_definitions(TARGET_WINDOWS)
 elseif(APPLE)
@@ -29,3 +33,5 @@ target_sources(fwfengine PRIVATE
 target_include_directories(fwfengine INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+target_link_libraries(fwfengine INTERFACE Threads::Threads)

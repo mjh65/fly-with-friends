@@ -33,5 +33,10 @@
 #define STRNCPY strncpy
 #define LOCALTIME localtime_r
 #elif defined(TARGET_LINUX)
+#define SPRINTF sprintf
+#define SSCANF sscanf
+#define STRCPY(t,n,s) strcpy(t,s)
+#define STRNCPY strncpy
+#define LOCALTIME localtime_r
 #endif
 

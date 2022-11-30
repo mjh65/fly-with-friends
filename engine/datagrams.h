@@ -18,14 +18,16 @@
 
 #pragma once
 
-#ifdef TARGET_WINDOWS
+#if defined(TARGET_WINDOWS)
 #include <WinSock2.h>
-#else
+#elif defined(TARGET_LINUX)
+#include <arpa/inet.h>
 #endif
 #include "fwfconsts.h"
 #include "fwfsocket.h"
 #include "isimdata.h"
 #include <memory>
+#include <cstring>
 #include <cassert>
 #include <chrono>
 
