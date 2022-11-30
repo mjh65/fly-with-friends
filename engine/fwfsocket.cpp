@@ -61,7 +61,7 @@ std::string IPv4Address::GetQuad() const
 {
     if (!address) return std::string("-.-.-.-");
     char astr[16];
-    SPRINTF(astr, "%d.%d.%d.%d", Get(0), Get(1), Get(2), Get(3));
+    SPRINTF(astr, 16, "%d.%d.%d.%d", Get(0), Get(1), Get(2), Get(3));
     return std::string(astr);
 }
 
@@ -130,7 +130,7 @@ bool SocketAddress::operator<(const SocketAddress& x) const
 std::string SocketAddress::GetAsString() const
 {
     char ps[8];
-    SPRINTF(ps, "%u", port);
+    SPRINTF(ps, 8, "%u", port);
     std::string s = GetQuad() + ":" + std::string(ps);
     return s;
 }

@@ -133,12 +133,12 @@ int IPAddrFinder::ipify_query(SocketNumber sd, char *addr, size_t len)
     std::string req;
     req = std::string("GET / HTTP/1.0\r\nHost: ") + IPIFY_HOST + "\r\nUser-Agent: FWF/1.0\r\n\r\n";
 
-    int rc;
+    //int rc;
     char tmp[sizeof(struct in6_addr)];
     char buf[512], *ptr;
     int domain;
 
-    rc = send(sd, req.c_str(), (int)req.size(), 0);
+    auto rc = send(sd, req.c_str(), (int)req.size(), 0);
     if (rc < 0) {
         return -1;
     }
@@ -168,7 +168,7 @@ int IPAddrFinder::ipify_query(SocketNumber sd, char *addr, size_t len)
         }
     }
 
-    if (!inet_ntop(domain, tmp, addr, len)) {
+    if (!inet_ntop(domain, tmp, addr, (socklen_t)len)) {
         return 1;
     }
 

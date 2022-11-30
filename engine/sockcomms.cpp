@@ -184,7 +184,7 @@ int UdpSocketLocal::WaitReceive()
     FWF_LOG_DEBUG(debugLogging,"%s: %s", name.c_str(), pktDebugBuffer);
 #endif
     if (recsize < 8) return 0; // must be at least 8 bytes long for seq-number, command, payload-length
-    dgf.Data()->SetLength(recsize);
+    dgf.Data()->SetLength((unsigned int)recsize);
     dgf.SetAddress(SocketAddress(ntohl(from.sin_addr.s_addr), ntohs(from.sin_port)));
     owner->IncomingDatagram(dgf);
     return 1;

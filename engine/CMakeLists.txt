@@ -34,4 +34,4 @@ target_include_directories(fwfengine INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(fwfengine INTERFACE Threads::Threads)
+target_link_libraries(fwfengine PRIVATE fwf_compiler_flags INTERFACE Threads::Threads)

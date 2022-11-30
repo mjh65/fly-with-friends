@@ -19,21 +19,21 @@
 #pragma once
 
 #if defined(TARGET_WINDOWS)
-#define SPRINTF sprintf_s
+#define SPRINTF(s,n,f,args...) sprintf_s(s,f,args)
 #define SSCANF sscanf_s
 #define STRCAT strcat_s
 #define STRCPY strcpy_s
 #define STRNCPY strncpy_s
 #define LOCALTIME(t,s) localtime_s(s,t)
 #elif defined(TARGET_MACOSX)
-#define SPRINTF sprintf
+#define SPRINTF(s,n,f,args...) snprintf(s,n,f,args)
 #define SSCANF sscanf
 #define STRCAT strcat
 #define STRCPY(t,n,s) strcpy(t,s)
 #define STRNCPY strncpy
 #define LOCALTIME localtime_r
 #elif defined(TARGET_LINUX)
-#define SPRINTF sprintf
+#define SPRINTF(s,n,f,args...) sprintf(s,f,args)
 #define SSCANF sscanf
 #define STRCPY(t,n,s) strcpy(t,s)
 #define STRNCPY strncpy

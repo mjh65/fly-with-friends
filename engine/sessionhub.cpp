@@ -297,7 +297,7 @@ std::shared_ptr<Datagram> SessionHub::PrepareBroadcast()
         pl -= (unsigned int)(callsign.size() + 1);
     }
 
-    dg->SetPayloadLength((unsigned long)(p - dg->Payload()));
+    dg->SetPayloadLength((unsigned int)(p - dg->Payload()));
     return dg;
 }
 
